@@ -67,3 +67,26 @@ section h2 {
 .dropdown a:hover {background-color: #ddd;}
 
 .show {display: block;}
+
+#ask-form {
+  display: flex;
+  gap: 12px;
+}
+
+#question-input {
+  flex: 1;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #cbd5e1;
+}
+
+#ask-status {
+  color: #64748b;
+  font-style: italic;
+  min-height: 1.2em;
+}
+
+#answer-box {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}

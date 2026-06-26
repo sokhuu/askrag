@@ -48,8 +48,49 @@ window.onclick = function(event) {
     </section>
     <section>
       <h2>Ask Questions</h2>
-        <input type="text" placeholder="Search...">
+      <form id="ask-form">
+        <input type="text" id="question-input" placeholder="Search..." autocomplete="off">
+        <button type="submit" class="dropbtn">Ask</button>
+      </form>
+      <p id="ask-status"></p>
+      <div id="answer-box"></div>
     </section>
   </main>
+
+  <script>
+    const askForm = document.getElementById("ask-form");
+    const questionInput = document.getElementById("question-input");
+    const askStatus = document.getElementById("ask-status");
+    const answerBox = document.getElementById("answer-box");
+    let chatHistory = [];
+
+    askForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const question = questionInput.value.trim();
+      if (!question) return;
+
+      askStatus.textContent = "Thinking...";
+      answerBox.textContent = "";
+
+      try {
+        const response = await fetch("/api/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, chat_history: chatHistory }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        chatHistory = data.chat_history;
+        answerBox.textContent = data.answer;
+        askStatus.textContent = "";
+      } catch (err) {
+        askStatus.textContent = "Something went wrong. Please try again.";
+      }
+    });
+  </script>
 </body>
 </html>
