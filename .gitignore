@@ -1,8 +1,8 @@
 # Environment variables (contains API keys)
 .env
 
-# Vector database
-db/
+# Unused legacy vector store
+db/chroma_db/
 
 # Python
 __pycache__/

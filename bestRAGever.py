@@ -197,12 +197,17 @@ def manifest_path(persist_directory):
 
 
 def compute_docs_signature(docs_path):
-    """Hash every file's path/size/mtime so we can detect added/removed/edited docs"""
-    entries = []
+    """Hash every file's path/content so we can detect added/removed/edited docs.
+
+    Content-based (not mtime-based) so the signature is stable across git
+    clones/deploys, where checkout mtimes don't match the original ingestion run.
+    """
+    overall = hashlib.sha256()
     for file_path in sorted(glob.glob(os.path.join(docs_path, "*"))):
-        stat = os.stat(file_path)
-        entries.append(f"{file_path}:{stat.st_size}:{int(stat.st_mtime)}")
-    return hashlib.sha256("|".join(entries).encode("utf-8")).hexdigest()
+        overall.update(file_path.encode("utf-8"))
+        with open(file_path, "rb") as f:
+            overall.update(hashlib.sha256(f.read()).digest())
+    return overall.hexdigest()
 
 
 def read_manifest_signature(persist_directory):
