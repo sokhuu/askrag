@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brand Name</title>
+  <link rel="stylesheet" href="styles.css" type="text/css">
+</head>
+<body>
+  <header>
+    <h1>Brand Name</h1>
+    <p>Find out what CA composting laws apply to you.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Which city are you in?</h2>
+      <div class="dropdown">
+  <button onclick="myFunction()" class="dropbtn">Select your city</button>
+  <div id="myDropdown" class="dropdown-content">
+    <a href="#Claremont">Claremont</a>
+    <a href="#Orinda">Orinda</a>
+    <a href="#Bakersfield">Bakersfield</a>
+  </div>
+</div>
+
+<script>
+/* When the user clicks on the button, 
+toggle between hiding and showing the dropdown content */
+function myFunction() {
+  document.getElementById("myDropdown").classList.toggle("show");
+}
+
+// Close the dropdown if the user clicks outside of it
+window.onclick = function(event) {
+  if (!event.target.matches('.dropbtn')) {
+    var dropdowns = document.getElementsByClassName("dropdown-content");
+    var i;
+    for (i = 0; i < dropdowns.length; i++) {
+      var openDropdown = dropdowns[i];
+      if (openDropdown.classList.contains('show')) {
+        openDropdown.classList.remove('show');
+      }
+    }
+  }
+}
+</script>
+
+    </section>
+    <section>
+      <h2>Ask Questions</h2>
+        <input type="text" placeholder="Search...">
+    </section>
+  </main>
+</body>
+</html>
