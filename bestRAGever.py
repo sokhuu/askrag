@@ -19,9 +19,6 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers.ensemble import EnsembleRetriever
 from langchain_cohere import CohereRerank
 
-from unstructured.partition.pdf import partition_pdf
-from unstructured.chunking.title import chunk_by_title
-
 load_dotenv()
 
 DOCS_PATH = "docs"
@@ -42,6 +39,9 @@ class QueryVariations(BaseModel):
 
 def partition_pdf_file(file_path):
     """Extract text/table/image-aware chunks from a PDF via unstructured"""
+    from unstructured.partition.pdf import partition_pdf
+    from unstructured.chunking.title import chunk_by_title
+
     elements = partition_pdf(
         filename=file_path,
         strategy="hi_res",
