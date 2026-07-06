@@ -3,12 +3,16 @@ import json
 import base64
 import glob
 import hashlib
-import shutil
+import pickle
+import threading
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
+import openai
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
 
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -23,12 +27,31 @@ load_dotenv()
 
 DOCS_PATH = "docs"
 PERSIST_DIRECTORY = "db/chroma_combined"
+ANSWER_CACHE_PATH = f"{PERSIST_DIRECTORY}.answer_cache.json"
+BM25_CACHE_PATH = f"{PERSIST_DIRECTORY}.bm25.pkl"
+MAX_HISTORY_TURNS = 10
 TEXT_EXTENSIONS = {".txt"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 PDF_EXTENSIONS = {".pdf"}
+DOCX_EXTENSIONS = {".docx"}
+PPTX_EXTENSIONS = {".pptx"}
+SPREADSHEET_EXTENSIONS = {".xlsx", ".csv"}
+
+PDF_STRATEGY = os.getenv("PDF_STRATEGY", "fast")  # override with "hi_res" for table/image extraction
 
 embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
+llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+
+@retry(
+    wait=wait_random_exponential(min=1, max=60),
+    stop=stop_after_attempt(6),
+    retry=retry_if_exception_type(openai.RateLimitError),
+    reraise=True,
+)
+def _invoke_with_retry(model, messages):
+    return model.invoke(messages)
 
 
 class QueryVariations(BaseModel):
@@ -37,17 +60,20 @@ class QueryVariations(BaseModel):
 
 # ingestion
 
-def partition_pdf_file(file_path):
-    """Extract text/table/image-aware chunks from a PDF via unstructured"""
+def partition_pdf_file(file_path, strategy=None):
+    """Extract chunks from a PDF via unstructured. strategy='fast' (default) for text-only;
+    'hi_res' enables table structure and image extraction at the cost of much slower parsing."""
     from unstructured.partition.pdf import partition_pdf
     from unstructured.chunking.title import chunk_by_title
 
+    strategy = strategy or PDF_STRATEGY
+    hi_res = strategy == "hi_res"
     elements = partition_pdf(
         filename=file_path,
-        strategy="hi_res",
-        infer_table_structure=True,
-        extract_image_block_types=["Image"],
-        extract_image_block_to_payload=True,
+        strategy=strategy,
+        infer_table_structure=hi_res,
+        extract_image_block_types=["Image"] if hi_res else [],
+        extract_image_block_to_payload=hi_res,
     )
     chunks = chunk_by_title(
         elements,
@@ -87,35 +113,63 @@ def partition_image_file(file_path):
     return [{"text": "", "tables": [], "images": [image_base64], "source": file_path}]
 
 
-def partition_all_documents(docs_path):
-    """Walk docs_path and normalize every supported file into chunks"""
-    if not os.path.exists(docs_path):
-        raise FileNotFoundError(f"The directory {docs_path} does not exist.")
-
-    all_chunks = []
-    for file_path in sorted(glob.glob(os.path.join(docs_path, "*"))):
-        ext = os.path.splitext(file_path)[1].lower()
-        print(f"Partitioning {file_path}...")
-        if ext in TEXT_EXTENSIONS:
-            all_chunks.extend(partition_text_file(file_path))
-        elif ext in PDF_EXTENSIONS:
-            all_chunks.extend(partition_pdf_file(file_path))
-        elif ext in IMAGE_EXTENSIONS:
-            all_chunks.extend(partition_image_file(file_path))
-        else:
-            print(f"  Skipping unsupported file type: {file_path}")
-
-    if not all_chunks:
-        raise FileNotFoundError(
-            f"No supported documents (.txt, .pdf, .png, .jpg, .jpeg) found in {docs_path}."
-        )
-
-    print(f"Partitioned {len(all_chunks)} chunks from documents in {docs_path}")
-    return all_chunks
+def partition_docx_file(file_path, chunk_size=1000, chunk_overlap=200):
+    from docx import Document as DocxDocument
+    doc = DocxDocument(file_path)
+    full_text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    chunks = [
+        {"text": piece, "tables": [], "images": [], "source": file_path}
+        for piece in splitter.split_text(full_text)
+    ]
+    for table in doc.tables:
+        rows = [[cell.text.strip() for cell in row.cells] for row in table.rows]
+        html = "<table>" + "".join(
+            "<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>" for row in rows
+        ) + "</table>"
+        text = "\n".join("\t".join(row) for row in rows)
+        chunks.append({"text": text, "tables": [html], "images": [], "source": file_path})
+    return chunks or [{"text": "", "tables": [], "images": [], "source": file_path}]
 
 
-def create_ai_enhanced_summary(text, tables, images, source):
-    """Use GPT-4o vision to create a rich, searchable description for mixed content"""
+def partition_pptx_file(file_path, chunk_size=1000, chunk_overlap=200):
+    from pptx import Presentation
+    prs = Presentation(file_path)
+    slide_texts = []
+    for i, slide in enumerate(prs.slides, 1):
+        texts = [s.text.strip() for s in slide.shapes if hasattr(s, "text") and s.text.strip()]
+        if texts:
+            slide_texts.append(f"Slide {i}:\n" + "\n".join(texts))
+    full_text = "\n\n".join(slide_texts)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    pieces = splitter.split_text(full_text)
+    return [{"text": piece, "tables": [], "images": [], "source": file_path} for piece in pieces] \
+        or [{"text": "", "tables": [], "images": [], "source": file_path}]
+
+
+def partition_spreadsheet_file(file_path, rows_per_chunk=100):
+    import pandas as pd
+    ext = os.path.splitext(file_path)[1].lower()
+    sheets = (
+        [("", pd.read_csv(file_path))]
+        if ext == ".csv"
+        else [(name, pd.read_excel(file_path, sheet_name=name))
+              for name in pd.ExcelFile(file_path).sheet_names]
+    )
+    chunks = []
+    for sheet_name, df in sheets:
+        for start in range(0, max(len(df), 1), rows_per_chunk):
+            sl = df.iloc[start:start + rows_per_chunk]
+            label = f"Sheet '{sheet_name}', " if sheet_name else ""
+            text = f"{label}rows {start}–{start + len(sl) - 1}\n{sl.to_string(index=False)}"
+            chunks.append({"text": text, "tables": [sl.to_html(index=False)], "images": [], "source": file_path})
+    return chunks
+
+
+def create_ai_enhanced_summary(text, tables, images, source, model=None):
+    """Create a rich, searchable description for mixed content.
+    Uses gpt-4o (vision) by default; pass llm_mini for text/table-only chunks."""
+    model = model or llm
     try:
         prompt_text = f"""You are creating a searchable description for document content retrieval.
 
@@ -150,7 +204,7 @@ SEARCHABLE DESCRIPTION:"""
                 "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
             })
 
-        response = llm.invoke([HumanMessage(content=message_content)])
+        response = _invoke_with_retry(model, [HumanMessage(content=message_content)])
         return response.content
     except Exception as e:
         print(f"  AI summary failed for {source}: {e}")
@@ -162,31 +216,81 @@ SEARCHABLE DESCRIPTION:"""
         return summary
 
 
-def summarize_chunks(raw_chunks):
-    """Turn normalized chunks into LangChain Documents with searchable page_content"""
-    documents = []
-    total = len(raw_chunks)
-    for i, chunk in enumerate(raw_chunks, 1):
-        print(f"Summarizing chunk {i}/{total} ({chunk['source']})...")
-        if chunk["tables"] or chunk["images"]:
-            searchable_content = create_ai_enhanced_summary(
-                chunk["text"], chunk["tables"], chunk["images"], chunk["source"]
-            )
-        else:
-            searchable_content = chunk["text"]
+def _save_images_to_disk(images_base64, images_dir):
+    """Write base64 image blobs to disk keyed by content hash. Returns list of paths."""
+    os.makedirs(images_dir, exist_ok=True)
+    paths = []
+    for img_b64 in images_base64:
+        img_hash = hashlib.sha256(img_b64.encode()).hexdigest()[:16]
+        img_path = os.path.join(images_dir, f"{img_hash}.jpg")
+        if not os.path.exists(img_path):
+            with open(img_path, "wb") as f:
+                f.write(base64.b64decode(img_b64))
+        paths.append(img_path)
+    return paths
 
-        documents.append(Document(
-            page_content=searchable_content,
-            metadata={
-                "source": chunk["source"],
-                "original_content": json.dumps({
-                    "raw_text": chunk["text"],
-                    "tables_html": chunk["tables"],
-                    "images_base64": chunk["images"],
-                }),
-            },
-        ))
-    return documents
+
+def _summarize_one(index, total, chunk, images_dir):
+    """Summarize a single chunk; returns (original_index, Document) for stable ordering."""
+    print(f"Summarizing chunk {index}/{total} ({chunk['source']})...")
+    if chunk["images"]:
+        # Vision content — gpt-4o required
+        searchable_content = create_ai_enhanced_summary(
+            chunk["text"], chunk["tables"], chunk["images"], chunk["source"]
+        )
+    elif chunk["tables"]:
+        # Text + tables, no images — gpt-4o-mini is sufficient (~10x cheaper)
+        searchable_content = create_ai_enhanced_summary(
+            chunk["text"], chunk["tables"], [], chunk["source"], model=llm_mini
+        )
+    else:
+        searchable_content = chunk["text"]
+
+    image_paths = _save_images_to_disk(chunk["images"], images_dir)
+
+    return index, Document(
+        page_content=searchable_content,
+        metadata={
+            "source": chunk["source"],
+            "filename": os.path.basename(chunk["source"]),
+            "file_type": os.path.splitext(chunk["source"])[1].lstrip(".").lower(),
+            "has_tables": bool(chunk["tables"]),
+            "has_images": bool(chunk["images"]),
+            "image_paths": json.dumps(image_paths),
+            "original_content": json.dumps({
+                "raw_text": chunk["text"],
+                "tables_html": chunk["tables"],
+            }),
+        },
+    )
+
+_print_lock = threading.Lock()
+
+def summarize_chunks(raw_chunks, images_dir, max_workers=20):
+    """Turn normalized chunks into LangChain Documents, parallelizing GPT-4o calls."""
+    total = len(raw_chunks)
+    results = [None] * total
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(_summarize_one, i, total, chunk, images_dir): (i, chunk["source"])
+            for i, chunk in enumerate(raw_chunks)
+        }
+        done_count = [0]
+        for future in as_completed(futures):
+            idx, source = futures[future]
+            try:
+                _, doc = future.result()
+                results[idx] = doc
+            except Exception as e:
+                with _print_lock:
+                    print(f"\n  [SKIP] Summarization failed for chunk {idx} ({source}): {e}")
+            with _print_lock:
+                done_count[0] += 1
+                print(f"  [{done_count[0]}/{total}] chunks summarized", end="\r", flush=True)
+
+    print()
+    return [r for r in results if r is not None]
 
 
 # vector store
@@ -196,82 +300,175 @@ def manifest_path(persist_directory):
     return f"{persist_directory}.manifest.json"
 
 
-def compute_docs_signature(docs_path):
-    """Hash every file's path/content so we can detect added/removed/edited docs.
-
-    Content-based (not mtime-based) so the signature is stable across git
-    clones/deploys, where checkout mtimes don't match the original ingestion run.
-    """
-    overall = hashlib.sha256()
-    for file_path in sorted(glob.glob(os.path.join(docs_path, "*"))):
-        overall.update(file_path.encode("utf-8"))
-        with open(file_path, "rb") as f:
-            overall.update(hashlib.sha256(f.read()).digest())
-    return overall.hexdigest()
+def _hash_file(file_path):
+    """Stream-hash a file in 64 KB blocks to avoid loading large PDFs into memory."""
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for block in iter(lambda: f.read(65536), b""):
+            h.update(block)
+    return h.hexdigest()
 
 
-def read_manifest_signature(persist_directory):
+def compute_per_file_signatures(docs_path):
+    """Return {file_path: sha256_hex} for every supported file under docs_path."""
+    all_extensions = TEXT_EXTENSIONS | IMAGE_EXTENSIONS | PDF_EXTENSIONS | DOCX_EXTENSIONS | PPTX_EXTENSIONS | SPREADSHEET_EXTENSIONS
+    signatures = {}
+    for file_path in sorted(glob.glob(os.path.join(docs_path, "**", "*"), recursive=True)):
+        if os.path.isfile(file_path) and os.path.splitext(file_path)[1].lower() in all_extensions:
+            signatures[file_path] = _hash_file(file_path)
+    return signatures
+
+
+def read_manifest(persist_directory):
+    """Return stored per-file signature dict. Old single-hash format treated as empty (triggers rebuild)."""
     path = manifest_path(persist_directory)
     if not os.path.exists(path):
-        return None
+        return {}
     with open(path, "r") as f:
-        return json.load(f).get("signature")
+        data = json.load(f)
+    return data.get("files", {})
 
 
-def write_manifest_signature(persist_directory, signature):
+def write_manifest(persist_directory, file_signatures):
     with open(manifest_path(persist_directory), "w") as f:
-        json.dump({"signature": signature}, f)
+        json.dump({"files": file_signatures}, f, indent=2)
+
+
+def _partition_one(file_path):
+    ext = os.path.splitext(file_path)[1].lower()
+    with _print_lock:
+        print(f"Partitioning {file_path}...")
+    try:
+        if ext in TEXT_EXTENSIONS:
+            return partition_text_file(file_path)
+        elif ext in PDF_EXTENSIONS:
+            return partition_pdf_file(file_path)
+        elif ext in IMAGE_EXTENSIONS:
+            return partition_image_file(file_path)
+        elif ext in DOCX_EXTENSIONS:
+            return partition_docx_file(file_path)
+        elif ext in PPTX_EXTENSIONS:
+            return partition_pptx_file(file_path)
+        elif ext in SPREADSHEET_EXTENSIONS:
+            return partition_spreadsheet_file(file_path)
+        return []
+    except Exception as e:
+        with _print_lock:
+            print(f"  [SKIP] Failed to partition {file_path}: {e}")
+        return []
+
+
+def partition_files(file_paths, max_workers=4):
+    """Partition a list of files into normalized chunks in parallel."""
+    all_chunks = []
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(_partition_one, fp): fp for fp in sorted(file_paths)}
+        for future in as_completed(futures):
+            all_chunks.extend(future.result())
+    return all_chunks
 
 
 def build_or_load_vectorstore(docs_path, persist_directory):
-    current_signature = compute_docs_signature(docs_path)
-    stored_signature = read_manifest_signature(persist_directory)
+    current_signatures = compute_per_file_signatures(docs_path)
+    stored_signatures = read_manifest(persist_directory)
 
-    if os.path.exists(persist_directory) and current_signature == stored_signature:
-        vectorstore = Chroma(
+    added = [p for p in current_signatures if p not in stored_signatures]
+    modified = [p for p in current_signatures if p in stored_signatures and current_signatures[p] != stored_signatures[p]]
+    deleted = [p for p in stored_signatures if p not in current_signatures]
+
+    if os.path.exists(persist_directory) and not added and not modified and not deleted:
+        print("Vector store is up to date.")
+        return Chroma(
             persist_directory=persist_directory,
             embedding_function=embedding_model,
             collection_metadata={"hnsw:space": "cosine"},
         )
-        return vectorstore
 
-    if os.path.exists(persist_directory):
-        print(f"{docs_path} has changed since last ingestion. Rebuilding vector store...")
-        shutil.rmtree(persist_directory)
+    if added or modified or deleted:
+        summary = []
+        if added:
+            summary.append(f"{len(added)} added")
+        if modified:
+            summary.append(f"{len(modified)} modified")
+        if deleted:
+            summary.append(f"{len(deleted)} deleted")
+        print(f"Detected changes: {', '.join(summary)}. Running incremental update...")
     else:
         print("No existing vector store found. Running full ingestion pipeline...")
 
-    raw_chunks = partition_all_documents(docs_path)
-    documents = summarize_chunks(raw_chunks)
-
-    vectorstore = Chroma.from_documents(
-        documents=documents,
-        embedding=embedding_model,
+    vectorstore = Chroma(
         persist_directory=persist_directory,
+        embedding_function=embedding_model,
         collection_metadata={"hnsw:space": "cosine"},
     )
-    write_manifest_signature(persist_directory, current_signature)
-    print(f"Vector store created with {len(documents)} chunks at {persist_directory}")
+
+    # Remove chunks for deleted or modified files
+    stale_files = deleted + modified
+    if stale_files:
+        print(f"Removing stale chunks for {len(stale_files)} file(s)...")
+        for file_path in stale_files:
+            result = vectorstore.get(where={"source": file_path})
+            if result["ids"]:
+                vectorstore.delete(ids=result["ids"])
+                print(f"  Removed {len(result['ids'])} chunk(s) from {file_path}")
+
+    # Ingest added and modified files
+    images_dir = os.path.join(persist_directory, "images")
+    to_ingest = added + modified
+    if to_ingest:
+        print(f"Ingesting {len(to_ingest)} file(s)...")
+        raw_chunks = partition_files(to_ingest)
+        if raw_chunks:
+            documents = summarize_chunks(raw_chunks, images_dir=images_dir)
+            vectorstore.add_documents(documents)
+            print(f"Added {len(documents)} chunk(s) to vector store.")
+    elif not os.path.exists(persist_directory):
+        raise FileNotFoundError(f"No supported documents found in {docs_path}.")
+
+    # Docs changed — invalidate cached BM25 index and answer cache
+    for stale_path in [BM25_CACHE_PATH, ANSWER_CACHE_PATH]:
+        if os.path.exists(stale_path):
+            os.remove(stale_path)
+
+    write_manifest(persist_directory, current_signatures)
+    print(f"Vector store ready. Tracking {len(current_signatures)} file(s).")
     return vectorstore
 
 
-def load_all_documents(vectorstore):
-    """Reconstruct Document objects from the vector store, needed for BM25"""
-    raw = vectorstore.get()
+def _load_all_documents(vectorstore):
+    raw = vectorstore.get(include=["documents", "metadatas"])
     return [
         Document(page_content=content, metadata=metadata)
         for content, metadata in zip(raw["documents"], raw["metadatas"])
     ]
 
 
-def build_hybrid_retriever(vectorstore, documents, k=10):
+def _build_or_load_bm25_retriever(vectorstore, k):
+    """Load a pickled BM25 index from disk, or build and cache it on first run."""
+    index_path = BM25_CACHE_PATH
+    if os.path.exists(index_path):
+        print("Loading BM25 index from disk...")
+        with open(index_path, "rb") as f:
+            retriever = pickle.load(f)
+        retriever.k = k
+        return retriever
+
+    print("Building BM25 index (first run or docs changed)...")
+    documents = _load_all_documents(vectorstore)
+    retriever = BM25Retriever.from_documents(documents)
+    retriever.k = k
+    with open(index_path, "wb") as f:
+        pickle.dump(retriever, f)
+    return retriever
+
+
+def build_hybrid_retriever(vectorstore, k=10):
     vector_retriever = vectorstore.as_retriever(search_kwargs={"k": k})
-    bm25_retriever = BM25Retriever.from_documents(documents)
-    bm25_retriever.k = k
+    bm25_retriever = _build_or_load_bm25_retriever(vectorstore, k)
     return EnsembleRetriever(retrievers=[vector_retriever, bm25_retriever], weights=[0.7, 0.3])
 
 
-# accuracy pipline for history-aware rewrite -> multi-query -> RRF -> rerank
+# accuracy pipeline for history-aware rewrite -> multi-query -> RRF -> rerank
 
 def rewrite_standalone_query(user_question, chat_history):
     if not chat_history:
@@ -363,11 +560,14 @@ CONTENT TO ANALYZE:
         for j, table in enumerate(original.get("tables_html", []), 1):
             prompt_text += f"TABLE {j}:\n{table}\n"
 
-        for image_base64 in original.get("images_base64", []):
-            image_blocks.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
-            })
+        for img_path in json.loads(doc.metadata.get("image_paths", "[]")):
+            if os.path.exists(img_path):
+                with open(img_path, "rb") as f:
+                    image_base64 = base64.b64encode(f.read()).decode("utf-8")
+                image_blocks.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
+                })
 
     prompt_text += "\nANSWER:"
     message_content = [{"type": "text", "text": prompt_text}] + image_blocks
@@ -379,22 +579,51 @@ CONTENT TO ANALYZE:
         )),
     ] + chat_history + [HumanMessage(content=message_content)]
 
-    result = llm.invoke(messages)
-    print(f"\n{result.content}")
-    return result.content
+    print()
+    full_response = ""
+    for chunk in llm.stream(messages):
+        print(chunk.content, end="", flush=True)
+        full_response += chunk.content
+    print()
+    return full_response
 
 
 # CHAT :3
 
-def ask_question(user_question, hybrid_retriever, chat_history, fetch_k=15, final_k=5):
-    
+def _load_answer_cache():
+    if not os.path.exists(ANSWER_CACHE_PATH):
+        return {}
+    with open(ANSWER_CACHE_PATH) as f:
+        return json.load(f)
 
+
+def _save_answer_cache(cache):
+    with open(ANSWER_CACHE_PATH, "w") as f:
+        json.dump(cache, f, indent=2)
+
+
+def ask_question(user_question, hybrid_retriever, chat_history, fetch_k=15, final_k=5,
+                 vectorstore=None, metadata_filter=None):
     standalone_query = rewrite_standalone_query(user_question, chat_history)
+
+    cache_key = hashlib.sha256(standalone_query.lower().strip().encode()).hexdigest()[:16]
+    cache = _load_answer_cache()
+    if cache_key in cache:
+        print(f"\n{cache[cache_key]}")
+        chat_history.append(HumanMessage(content=user_question))
+        chat_history.append(AIMessage(content=cache[cache_key]))
+        return cache[cache_key]
 
     variations = generate_query_variations(standalone_query)
     all_queries = [standalone_query] + variations
 
-    all_results = [hybrid_retriever.invoke(q) for q in all_queries]
+    if metadata_filter and vectorstore:
+        retriever = vectorstore.as_retriever(search_kwargs={"k": fetch_k, "filter": metadata_filter})
+        with ThreadPoolExecutor() as pool:
+            all_results = list(pool.map(retriever.invoke, all_queries))
+    else:
+        with ThreadPoolExecutor() as pool:
+            all_results = list(pool.map(hybrid_retriever.invoke, all_queries))
 
     fused = reciprocal_rank_fusion(all_results, k=60)
     candidates = [doc for doc, _ in fused[:fetch_k]]
@@ -403,15 +632,22 @@ def ask_question(user_question, hybrid_retriever, chat_history, fetch_k=15, fina
 
     answer = generate_answer(top_docs, user_question, chat_history)
 
+    cache[cache_key] = answer
+    _save_answer_cache(cache)
+
     chat_history.append(HumanMessage(content=user_question))
     chat_history.append(AIMessage(content=answer))
+
+    # Keep history bounded to avoid context overflow
+    if len(chat_history) > MAX_HISTORY_TURNS * 2:
+        chat_history[:] = chat_history[-(MAX_HISTORY_TURNS * 2):]
+
     return answer
 
 
 def start_chat():
     vectorstore = build_or_load_vectorstore(DOCS_PATH, PERSIST_DIRECTORY)
-    documents = load_all_documents(vectorstore)
-    hybrid_retriever = build_hybrid_retriever(vectorstore, documents)
+    hybrid_retriever = build_hybrid_retriever(vectorstore)
 
     chat_history = []
     print("\nAsk me anything about food waste!")
@@ -420,7 +656,7 @@ def start_chat():
         if question.lower() == "quit":
             print("Goodbye!")
             break
-        ask_question(question, hybrid_retriever, chat_history)
+        ask_question(question, hybrid_retriever, chat_history, vectorstore=vectorstore)
 
 
 if __name__ == "__main__":
