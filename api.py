@@ -14,7 +14,6 @@ from bestRAGever import (
     ask_question,
     build_hybrid_retriever,
     build_or_load_vectorstore,
-    load_all_documents,
 )
 
 load_dotenv()
@@ -28,8 +27,8 @@ retriever_state = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     vectorstore = build_or_load_vectorstore(DOCS_PATH, PERSIST_DIRECTORY)
-    documents = load_all_documents(vectorstore)
-    retriever_state["hybrid_retriever"] = build_hybrid_retriever(vectorstore, documents)
+    retriever_state["hybrid_retriever"] = build_hybrid_retriever(vectorstore)
+    retriever_state["vectorstore"] = vectorstore
     yield
 
 
@@ -75,7 +74,12 @@ def ask(request: AskRequest):
         for m in request.chat_history
     ]
 
-    answer = ask_question(request.question, retriever_state["hybrid_retriever"], chat_history)
+    answer = ask_question(
+        request.question,
+        retriever_state["hybrid_retriever"],
+        chat_history,
+        vectorstore=retriever_state["vectorstore"],
+    )
 
     updated_history = [
         ChatMessage(role="human" if isinstance(m, HumanMessage) else "ai", content=m.content)
