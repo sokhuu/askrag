@@ -19,6 +19,7 @@
     --muted:#57697C;
     --white:#FFFFFF;
     --live:#2E9E5B;
+    --gold:#F7B500;
   }
   *{box-sizing:border-box;}
   body{
@@ -64,8 +65,8 @@
     background:var(--navy);
     background-image:linear-gradient(var(--navy),var(--navy-dark));
     color:var(--white);
-    border-top:6px solid var(--panel);
-    border-bottom:6px solid var(--panel);
+    border-top:6px solid var(--gold);
+    border-bottom:6px solid var(--gold);
     padding:56px 32px 64px;
   }
   .hero-inner{max-width:900px;margin:0 auto;text-align:center;}
@@ -91,16 +92,16 @@
   }
   .chat-body{padding:24px;display:flex;flex-direction:column;gap:16px;color:var(--ink);}
   .bubble-q{
-    align-self:flex-end;background:var(--ink);color:var(--white);
+    align-self:flex-end;background:var(--blue);color:var(--white);
     padding:11px 16px;border-radius:10px 10px 2px 10px;font-size:14.5px;max-width:80%;
   }
   .bubble-a{
-    align-self:flex-start;background:var(--blue);border:1px solid var(--blue-dark);
+    align-self:flex-start;background:var(--panel);border:1px solid var(--border);color:var(--ink);
     padding:11px 16px;border-radius:10px 10px 10px 2px;font-size:14.5px;max-width:88%;
   }
   .bubble-a .cite{
     display:inline-block;margin-top:8px;font-family:'IBM Plex Mono';font-size:11px;
-    color:var(--panel);
+    color:var(--muted);
   }
   .chat-input-row{
     border-top:1px solid var(--blue-dark);padding:14px 20px;
@@ -221,7 +222,7 @@
         <div class="bubble-a">
           Rule 3110 requires that each member inspect every branch office at least every three years if the branch office does not supervise one or more non-branch locations. The frequency of inspections should consider the nature and complexity of the securities activities, the volume of business, and the number of associated persons at the location. If a more frequent inspection cycle is established, the member must ensure compliance with the inspection requirements at least every three years. The member's written supervisory and inspection procedures must outline the examination cycle, the factors used to determine the frequency, and how compliance with the inspection requirements will be maintained.
         </div>
-        <div class="bubble-q">What is front running, and how is it addressed?</div>
+        <div class="bubble-q">What is front running, and how is it addressed??</div>
         <div class="bubble-a">
           Front running is the practice where a member or person associated with a member executes an order to buy or sell a security or related financial instrument based on material, non-public market information about an imminent block transaction in that security or related instruments. This is addressed by FINRA Rule 5270, which prohibits such actions before the information about the block transaction is made publicly available or becomes stale. The rule allows certain exceptions, such as transactions unrelated to the non-public information, transactions to correct errors, or those undertaken to fulfill a customer block order with the customer's consent.
         </div>
