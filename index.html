@@ -3,33 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RuleFinder — Ask anything about FINRA's rules</title>
+<title>RAG — Ask anything about starting a food-related business in California</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --navy:#0B2A4A;
-    --navy-dark:#071B30;
-    --blue:#0089C9;
-    --blue-dark:#03699C;
-    --bg:#F4F6F8;
-    --panel:#EAF0F5;
-    --border:#D8E1E8;
-    --ink:#132436;
-    --muted:#57697C;
-    --white:#FFFFFF;
-    --live:#2E9E5B;
+    --finblue:#0082d1;
+    --blue-dark:#244167;
+    --paper:#F3F5F1;
+    --paper-dim:#E8EBE4;
+    --asphalt:#22241D;
+    --amber:#f7aa06;
+    --amber-dark:#8A5B15;
+    --ink-blue:#2C4A6E;
+    --concrete:#9C9A8E;
+    --white:#FDFDFB;
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'Inter',sans-serif;
+    background:var(--paper);
+    color:var(--asphalt);
+    font-family:'Public Sans',sans-serif;
     line-height:1.55;
   }
   h1,h2,h3,.display{
-    font-family:'Inter',sans-serif;
+    font-family:'Overpass',sans-serif;
     font-weight:800;
     letter-spacing:-0.01em;
     margin:0;
@@ -38,44 +37,47 @@
     font-family:'IBM Plex Mono',monospace;
     letter-spacing:0.02em;
   }
-  a{color:var(--blue);}
+  a{color:var(--ink-blue);}
   .wrap{max-width:1080px;margin:0 auto;padding:0 32px;}
 
   nav{
     display:flex;align-items:center;justify-content:space-between;
     padding:20px 32px;max-width:1080px;margin:0 auto;
   }
-  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
-  .mark{
-    width:34px;height:34px;background:var(--navy);border-radius:7px;
+  .brand{display:flex;align-items:center;gap:10px;}
+  .shield{
+    width:34px;height:38px;background:var(--route-green);
+    clip-path:polygon(50% 0%,100% 20%,100% 70%,50% 100%,0% 70%,0% 20%);
     display:flex;align-items:center;justify-content:center;
-    color:var(--white);font-family:'Inter';font-weight:800;font-size:15px;
+    color:var(--white);font-family:'Overpass';font-weight:800;font-size:13px;
   }
-  .brand-name{font-family:'Inter';font-weight:800;font-size:19px;color:var(--ink);}
+  .brand-name{font-family:'Overpass';font-weight:800;font-size:19px;color:var(--asphalt);}
   .nav-links{display:flex;gap:28px;font-size:14px;font-weight:500;}
-  .nav-links a{color:var(--ink);text-decoration:none;}
+  .nav-links a{color:var(--asphalt);text-decoration:none;}
   .nav-cta{
-    background:var(--navy);color:var(--white);
-    padding:10px 20px;border-radius:4px;font-size:14px;font-weight:600;
+    background:var(--route-green);color:var(--white);
+    padding:10px 20px;border-radius:3px;font-size:14px;font-weight:600;
     text-decoration:none;
   }
   .hero{
-    background:var(--navy);
-    background-image:linear-gradient(160deg,var(--navy),var(--navy-dark));
+    background:var(--route-green);
+    background-image:linear-gradient(var(--route-green),var(--route-green-dark));
     color:var(--white);
+    border-top:6px solid var(--amber);
+    border-bottom:6px solid var(--amber);
     padding:56px 32px 64px;
   }
   .hero-inner{max-width:900px;margin:0 auto;text-align:center;}
   .eyebrow-route{
     display:inline-flex;align-items:center;gap:10px;
-    background:rgba(255,255,255,0.08);
-    border:1px solid rgba(255,255,255,0.25);
+    background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.35);
     padding:6px 14px;border-radius:3px;
     font-family:'IBM Plex Mono';font-size:12px;letter-spacing:0.08em;
     margin-bottom:22px;
   }
   .hero h1{font-size:42px;line-height:1.12;color:var(--white);}
-  .hero p.sub{font-size:17px;max-width:540px;margin:16px auto 0;color:#B9CBDD;}
+  .hero p.sub{font-size:17px;max-width:520px;margin:16px auto 0;color:#DCE7DE;}
 
   .chat-window{
     margin:36px auto 0;max-width:680px;text-align:left;
@@ -83,105 +85,100 @@
     box-shadow:0 20px 50px rgba(0,0,0,0.25);
   }
   .chat-head{
-    background:var(--navy-dark);color:var(--white);padding:12px 18px;
-    font-family:'IBM Plex Mono';font-size:12px;display:flex;justify-content:space-between;align-items:center;
+    background:var(--asphalt);color:var(--white);padding:12px 18px;
+    font-family:'IBM Plex Mono';font-size:12px;display:flex;justify-content:space-between;
   }
-  .live-dot{
-    display:inline-block;width:6px;height:6px;border-radius:50%;
-    background:var(--live);margin-right:6px;box-shadow:0 0 6px var(--live);
-  }
-  .chat-body{padding:24px;display:flex;flex-direction:column;gap:16px;color:var(--ink);}
+  .chat-body{padding:24px;display:flex;flex-direction:column;gap:16px;color:var(--asphalt);}
   .bubble-q{
-    align-self:flex-end;background:var(--blue);color:var(--white);
+    align-self:flex-end;background:var(--ink-blue);color:var(--white);
     padding:11px 16px;border-radius:10px 10px 2px 10px;font-size:14.5px;max-width:80%;
   }
   .bubble-a{
-    align-self:flex-start;background:var(--bg);border:1px solid var(--border);
+    align-self:flex-start;background:var(--paper);border:1px solid var(--paper-dim);
     padding:11px 16px;border-radius:10px 10px 10px 2px;font-size:14.5px;max-width:88%;
   }
   .bubble-a .cite{
     display:inline-block;margin-top:8px;font-family:'IBM Plex Mono';font-size:11px;
-    color:var(--blue-dark);
+    color:var(--amber-dark);
   }
   .chat-input-row{
-    border-top:1px solid var(--border);padding:14px 20px;
+    border-top:1px solid var(--paper-dim);padding:14px 20px;
     display:flex;gap:10px;background:var(--white);
   }
   .chat-input-row input{
-    flex:1;border:1px solid var(--border);border-radius:4px;
-    padding:12px 14px;font-size:14.5px;font-family:'Inter';color:var(--ink);
+    flex:1;border:1px solid var(--paper-dim);border-radius:4px;
+    padding:12px 14px;font-size:14.5px;font-family:'Public Sans';color:var(--asphalt);
   }
   .chat-input-row button{
-    background:var(--navy);color:var(--white);border:none;
+    background:var(--amber);color:var(--asphalt);border:none;
     padding:0 20px;border-radius:4px;font-weight:600;font-size:14px;
-    font-family:'Inter';cursor:pointer;
+    font-family:'Overpass';cursor:pointer;
   }
-  .hero-hint{margin-top:16px;font-size:13px;color:#8FA6BE;}
+  .hero-hint{margin-top:16px;font-size:13px;color:#B7CBBB;}
 
-  /* ---------- TOPIC CHIPS ---------- */
   .topics{padding:56px 32px 20px;}
   .topics h2{font-size:24px;text-align:center;}
   .topics .lead{
-    text-align:center;color:var(--ink);opacity:0.75;max-width:480px;
+    text-align:center;color:var(--asphalt);opacity:0.75;max-width:480px;
     margin:12px auto 34px;font-size:14.5px;
   }
   .chip-grid{
     display:grid;grid-template-columns:repeat(5,1fr);gap:12px;
   }
   .chip{
-    background:var(--white);border:1px solid var(--border);
+    background:var(--white);border:1px solid var(--paper-dim);
     border-radius:6px;padding:18px 14px;text-align:left;cursor:pointer;
     transition:border-color .15s;
   }
-  .chip:hover{border-color:var(--blue);}
-  .chip .chip-label{font-size:13.5px;font-weight:600;margin-bottom:6px;color:var(--ink);}
-  .chip .chip-example{font-size:12.5px;color:var(--muted);font-style:italic;}
+  .chip:hover{border-color:var(--route-green);}
+  .chip .chip-label{font-size:13.5px;font-weight:600;margin-bottom:6px;color:var(--asphalt);}
+  .chip .chip-example{font-size:12.5px;color:var(--asphalt);opacity:0.65;font-style:italic;}
 
-  /* ---------- WHY TRUST IT ---------- */
-  .trust{padding:64px 32px;background:var(--panel);}
+  .trust{padding:64px 32px;background:var(--paper-dim);}
   .trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;}
+  .trust-item{}
   .trust-item .num{
-    font-family:'IBM Plex Mono';font-size:12px;color:var(--navy);
-    background:var(--white);border:1px solid var(--border);
+    font-family:'IBM Plex Mono';font-size:12px;color:var(--route-green);
+    background:var(--white);border:1px solid var(--paper-dim);
     width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
     margin-bottom:14px;
   }
   .trust-item h3{font-size:16px;margin-bottom:8px;}
-  .trust-item p{font-size:13.5px;color:var(--muted);margin:0;}
-
+  .trust-item p{font-size:13.5px;opacity:0.75;margin:0;}
+  
   .examples{padding:64px 32px;}
   .examples h2{font-size:26px;text-align:center;margin-bottom:8px;}
-  .examples .lead{text-align:center;color:var(--muted);font-size:14.5px;margin-bottom:40px;}
-  .qa-list{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--border);}
+  .examples .lead{text-align:center;opacity:0.7;font-size:14.5px;margin-bottom:40px;}
+  .qa-list{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--paper-dim);}
   .qa-row{
     display:grid;grid-template-columns:1fr 40px;align-items:center;
-    padding:18px 4px;border-bottom:1px solid var(--border);cursor:pointer;
+    padding:18px 4px;border-bottom:1px solid var(--paper-dim);cursor:pointer;
   }
   .qa-row .qa-q{font-size:15px;font-weight:500;}
-  .qa-row .qa-arrow{color:var(--blue);font-size:16px;text-align:right;}
+  .qa-row .qa-arrow{color:var(--route-green);font-size:16px;text-align:right;}
 
   .also{padding:12px 32px 70px;}
   .also-card{
-    max-width:1016px;margin:0 auto;background:var(--white);border:1px solid var(--border);
+    max-width:1016px;margin:0 auto;background:var(--white);border:1px solid var(--paper-dim);
     border-radius:8px;padding:26px 30px;display:flex;align-items:center;justify-content:space-between;gap:24px;
   }
   .also-card .also-copy h3{font-size:16px;margin-bottom:6px;}
-  .also-card .also-copy p{font-size:13.5px;color:var(--muted);margin:0;max-width:440px;}
+  .also-card .also-copy p{font-size:13.5px;opacity:0.7;margin:0;max-width:440px;}
   .also-card .also-cta{
-    background:var(--panel);border:1px solid var(--border);color:var(--ink);
+    background:var(--paper);border:1px solid var(--paper-dim);color:var(--asphalt);
     padding:10px 18px;border-radius:4px;font-size:13.5px;font-weight:600;text-decoration:none;
     white-space:nowrap;
   }
 
   footer{
-    background:var(--navy-dark);color:#A9BDD1;padding:48px 32px 30px;
+    background:var(--asphalt);color:#C9CABF;padding:48px 32px 30px;
   }
   .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:36px;}
-  footer h4{font-family:'Inter';color:var(--white);font-size:13px;margin:0 0 14px;letter-spacing:0.04em;}
-  footer a{color:#A9BDD1;text-decoration:none;font-size:13.5px;display:block;margin-bottom:9px;}
+  footer h4{font-family:'Overpass';color:var(--white);font-size:13px;margin:0 0 14px;letter-spacing:0.04em;}
+  footer a{color:#C9CABF;text-decoration:none;font-size:13.5px;display:block;margin-bottom:9px;}
   .footer-bottom{
-    max-width:1080px;margin:36px auto 0;padding-top:20px;border-top:1px solid #1E3A56;
-    font-size:12.5px;color:#7690A8;display:flex;justify-content:space-between;
+    max-width:1080px;margin:36px auto 0;padding-top:20px;border-top:1px solid #3A3D31;
+    font-size:12.5px;color:#8C8E80;display:flex;justify-content:space-between;
   }
 
   @media (max-width:800px){
@@ -196,14 +193,14 @@
 <body>
 
 <nav>
-  <a href="index.html" class="brand">
-    <div class="mark">R</div>
-    <div class="brand-name">RuleFinder</div>
-  </a>
+  <div class="brand">
+    <div class="shield">CA</div>
+    <div class="brand-name">PermitPantry</div>
+  </div>
   <div class="nav-links">
     <a href="#">Home</a>
-    <a href="#">Rule topics</a>
-    <a href="#">Examples</a>
+    <a href="#">Common topics</a>
+    <a href="#">Checklist</a>
     <a href="#">About</a>
   </div>
   <a href="chat.html" class="nav-cta">Ask a question</a>
@@ -211,29 +208,29 @@
 
 <section class="hero">
   <div class="hero-inner">
-    <div class="eyebrow-route">FINRA RULEBOOK Q&A</div>
-    <h1>Ask anything about FINRA's rules.</h1>
-    <p class="sub">Answers are pulled directly from FINRA rule text — you'll see exactly which rule they came from.</p>
+    <div class="eyebrow-route">CALIFORNIA NEW BUSINESS COMPLIANCE</div>
+    <h1>Starting a food-related business in California? Ask anything.</h1>
+    <p class="sub">All answers are pulled directly from statutes, state forms, and your city's page.</p>
 
     <div class="chat-window">
       <div class="chat-head">
-        <span>RuleFinder</span>
-        <span><i class="live-dot"></i>LIVE</span>
+        <span>RAG</span>
+        <span>LIVE</span>
       </div>
       <div class="chat-body">
-        <div class="bubble-q">What does Rule 3110 require for branch office inspections?</div>
+        <div class="bubble-q">I'm opening a home bakery in Claremont. Do I need a permit?</div>
         <div class="bubble-a">
-          Rule 3110(c) requires firms to inspect each branch according to a schedule based on its risk designation — at minimum, every three years for regular branches, annually for OSJs and supervisory branches meeting certain criteria.
-          <div class="cite">Source: FINRA Rule 3110(c) — Internal Inspections</div>
+          Yes — home-based food businesses fall under California's Homemade Food Operations Act. You'll need a permit from LA County Public Health plus a home-occupation permit from the city of Claremont.
+          <div class="cite">Source: CA Homemade Food Operations Act</div>
         </div>
-        <div class="bubble-q">Does that apply to a one-person branch too?</div>
+        <div class="bubble-q">Do I need an LLC for that, or can I stay a sole prop?</div>
         <div class="bubble-a">
-          Yes, but firms have some flexibility for smaller offices — inspections can be unannounced or conducted remotely if the firm's risk assessment supports it. I can walk through what a written inspection schedule needs to cover, if that'd help.
-          <div class="cite">Source: FINRA Rule 3110.12 — Guidance on Branch Inspections</div>
+          Either works for a home bakery. A sole prop is simpler and cheaper to start, but an LLC separates your personal assets from business liability — worth it once you're selling regularly. I can walk through the cost difference if that'd help.
+          <div class="cite">Source: CA SOS — Starting a Business, Entity Types</div>
         </div>
       </div>
       <div class="chat-input-row">
-        <input type="text" placeholder="Ask about supervision, registration, reporting, sales practice…">
+        <input type="text" placeholder="Ask about entity types, permits, waste handling…">
         <button>Ask</button>
       </div>
     </div>
@@ -247,24 +244,24 @@
     <p class="lead">Frequently asked questions.</p>
     <div class="chip-grid">
       <div class="chip">
-        <div class="chip-label">Supervision & WSPs</div>
-        <div class="chip-example">"What must a WSP address under Rule 3110?"</div>
+        <div class="chip-label">Entity & registration</div>
+        <div class="chip-example">"LLC vs sole prop for a consulting business?"</div>
       </div>
       <div class="chip">
-        <div class="chip-label">Registration & licensing</div>
-        <div class="chip-example">"When do I need to amend a Form U4?"</div>
+        <div class="chip-label">Taxes & payroll</div>
+        <div class="chip-example">"When's the $800 franchise tax due?"</div>
       </div>
       <div class="chip">
-        <div class="chip-label">Sales practice & suitability</div>
-        <div class="chip-example">"What's required under the suitability rule?"</div>
+        <div class="chip-label">Licenses & permits</div>
+        <div class="chip-example">"Do I need a city permit for a home bakery?"</div>
       </div>
       <div class="chip">
-        <div class="chip-label">Reporting obligations</div>
-        <div class="chip-example">"When must I file under Rule 4530?"</div>
+        <div class="chip-label">Insurance & hiring</div>
+        <div class="chip-example">"When am I required to carry workers' comp?"</div>
       </div>
       <div class="chip">
-        <div class="chip-label">Outside activities</div>
-        <div class="chip-example">"Do I need approval for an outside business activity?"</div>
+        <div class="chip-label">Ongoing deadlines</div>
+        <div class="chip-example">"What's a Statement of Information?"</div>
       </div>
     </div>
   </div>
@@ -276,17 +273,17 @@
       <div class="trust-item">
         <div class="num">1</div>
         <h3>Directly sourced</h3>
-        <p>Every answer cites the exact FINRA rule, section, or supplementary material it came from.</p>
+        <p>All answers cite the state form, statute, or agency page it came from: Secretary of State, FTB, EDD, CDTFA, or your city.</p>
       </div>
       <div class="trust-item">
         <div class="num">2</div>
         <h3>Follow-up aware</h3>
-        <p>Ask a broad question first, then narrow it down — RuleFinder remembers what you've already discussed.</p>
+        <p>Ask a vague question first, then narrow it down. Our website will remember what you've told it about your business as you go.</p>
       </div>
       <div class="trust-item">
         <div class="num">3</div>
         <h3>Not legal advice</h3>
-        <p>We'll tell you exactly what the rule text says. For anything high-stakes, we'll flag when to loop in compliance or counsel.</p>
+        <p>We'll tell you exactly what the forms and statutes say. For anything high-stakes, we'll recommend when to speak to a professional.</p>
       </div>
     </div>
   </div>
@@ -296,22 +293,12 @@
   <div class="wrap">
     <h2>Questions people frequently ask</h2>
     <div class="qa-list">
-      <div class="qa-row"><div class="qa-q">What's the difference between Rule 3110 and Rule 3120?</div><div class="qa-arrow">→</div></div>
-      <div class="qa-row"><div class="qa-q">Do I need to report a customer complaint under Rule 4530?</div><div class="qa-arrow">→</div></div>
-      <div class="qa-row"><div class="qa-q">What are the recordkeeping requirements under Rule 4511?</div><div class="qa-arrow">→</div></div>
-      <div class="qa-row"><div class="qa-q">When is an outside business activity required to be disclosed?</div><div class="qa-arrow">→</div></div>
-      <div class="qa-row"><div class="qa-q">What triggers a Form U4 amendment?</div><div class="qa-arrow">→</div></div>
+      <div class="qa-row"><div class="qa-q">What's the difference between an LLC and an S-corp for taxes?</div><div class="qa-arrow">→</div></div>
+      <div class="qa-row"><div class="qa-q">Do I need a seller's permit if I only sell on Etsy?</div><div class="qa-arrow">→</div></div>
+      <div class="qa-row"><div class="qa-q">How much does it actually cost to register an LLC in California?</div><div class="qa-arrow">→</div></div>
+      <div class="qa-row"><div class="qa-q">What happens if I miss my Statement of Information deadline?</div><div class="qa-arrow">→</div></div>
+      <div class="qa-row"><div class="qa-q">Can I run my business from my apartment legally?</div><div class="qa-arrow">→</div></div>
     </div>
-  </div>
-</section>
-
-<section class="also">
-  <div class="also-card">
-    <div class="also-copy">
-      <h3>Want to verify an answer yourself?</h3>
-      <p>Every citation names the exact rule number, so you can pull up the source text in seconds.</p>
-    </div>
-    <a href="chat.html" class="also-cta">Ask a question</a>
   </div>
 </section>
 
@@ -319,20 +306,21 @@
   <div class="wrap footer-grid">
     <div>
       <div class="brand" style="margin-bottom:14px;">
-        <div class="mark">R</div>
-        <div class="brand-name" style="color:var(--white);">RuleFinder</div>
+        <div class="shield">CA</div>
+        <div class="brand-name" style="color:var(--white);">Name?</div>
       </div>
-      <p style="font-size:13px;max-width:280px;color:#8CA3B9;">A question-answering assistant for FINRA rules and interpretive guidance. Answers are sourced directly from FINRA's rulebook.</p>
+      <p style="font-size:13px;max-width:280px;color:#A5A79A;">A question-answering guide for California small business compliance.</p>
     </div>
     <div>
       <h4>Product</h4>
       <a href="chat.html">Ask a question</a>
+      <a href="#">Checklist builder</a>
     </div>
     <div>
       <h4>Coverage</h4>
-      <a href="#">Supervision</a>
-      <a href="#">Registration & licensing</a>
-      <a href="#">Reporting requirements</a>
+      <a href="#">Entity formation</a>
+      <a href="#">Licensing</a>
+      <a href="#">Ongoing deadlines</a>
     </div>
     <div>
       <h4>Company</h4>
@@ -342,7 +330,7 @@
     </div>
   </div>
   <div class="footer-bottom wrap">
-    <span>RuleFinder is not affiliated with FINRA and does not provide legal or compliance advice.</span>
+    <span>[] is not a law firm and does not provide legal advice lol.</span>
     <span>© 2026</span>
   </div>
 </footer>
