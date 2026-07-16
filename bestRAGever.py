@@ -650,11 +650,11 @@ def start_chat():
     hybrid_retriever = build_hybrid_retriever(vectorstore)
 
     chat_history = []
-    print("\nAsk me anything about food waste!")
+    print("\nAsk me about FINRA compliance.")
     while True:
         question = input("\nYour question: ")
         if question.lower() == "quit":
-            print("Goodbye!")
+            print("Goodbye.")
             break
         ask_question(question, hybrid_retriever, chat_history, vectorstore=vectorstore)
 
