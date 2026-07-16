@@ -3,27 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ask a question — California new business compliance</title>
+<title>Ask a question — FINRA rules</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --route-green:#1E4D3B;
-    --route-green-dark:#12332A;
-    --paper:#F3F5F1;
-    --paper-dim:#E8EBE4;
-    --asphalt:#22241D;
-    --amber:#E8A33D;
-    --amber-dark:#8A5B15;
-    --ink-blue:#2C4A6E;
-    --white:#FDFDFB;
+    --navy:#0B2A4A;
+    --navy-dark:#071B30;
+    --blue:#0089C9;
+    --blue-dark:#03699C;
+    --bg:#F4F6F8;
+    --panel:#EAF0F5;
+    --border:#D8E1E8;
+    --ink:#132436;
+    --muted:#57697C;
+    --white:#FFFFFF;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
     margin:0;
-    background:var(--paper);
-    color:var(--asphalt);
+    background:var(--bg);
+    color:var(--ink);
     font-family:'Public Sans',sans-serif;
     line-height:1.55;
     display:flex;flex-direction:column;
@@ -36,13 +37,13 @@
   }
   .brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
   .shield{
-    width:34px;height:38px;background:var(--route-green);
+    width:42px;height:40px;background:var(--navy);
     clip-path:polygon(50% 0%,100% 20%,100% 70%,50% 100%,0% 70%,0% 20%);
     display:flex;align-items:center;justify-content:center;
-    color:var(--white);font-family:'Overpass';font-weight:800;font-size:13px;
+    color:var(--white);font-family:'Overpass';font-weight:800;font-size:9px;letter-spacing:-0.02em;
   }
-  .brand-name{font-family:'Overpass',sans-serif;font-weight:800;font-size:19px;color:var(--asphalt);}
-  .nav-back{color:var(--asphalt);text-decoration:none;font-size:14px;font-weight:500;}
+  .brand-name{font-family:'Overpass',sans-serif;font-weight:800;font-size:19px;color:var(--ink);}
+  .nav-back{color:var(--ink);text-decoration:none;font-size:14px;font-weight:500;}
 
   main{
     flex:1;display:flex;align-items:center;justify-content:center;
@@ -63,33 +64,33 @@
     display:flex;flex-direction:column;
   }
   .chat-head{
-    background:var(--asphalt);color:var(--white);padding:12px 18px;
+    background:var(--ink);color:var(--white);padding:12px 18px;
     font-family:'IBM Plex Mono';font-size:12px;display:flex;justify-content:space-between;
   }
   .chat-body{
-    padding:24px;display:flex;flex-direction:column;gap:16px;color:var(--asphalt);
+    padding:24px;display:flex;flex-direction:column;gap:16px;color:var(--ink);
     min-height:320px;max-height:55vh;overflow-y:auto;
   }
   .bubble-q{
-    align-self:flex-end;background:var(--ink-blue);color:var(--white);
+    align-self:flex-end;background:var(--blue);color:var(--white);
     padding:11px 16px;border-radius:10px 10px 2px 10px;font-size:14.5px;max-width:80%;
     white-space:pre-wrap;
   }
   .bubble-a{
-    align-self:flex-start;background:var(--paper);border:1px solid var(--paper-dim);
+    align-self:flex-start;background:var(--panel);border:1px solid var(--border);color:var(--ink);
     padding:11px 16px;border-radius:10px 10px 10px 2px;font-size:14.5px;max-width:88%;
     white-space:pre-wrap;
   }
   .chat-input-row{
-    border-top:1px solid var(--paper-dim);padding:14px 20px;
+    border-top:1px solid var(--blue-dark);padding:14px 20px;
     display:flex;gap:10px;background:var(--white);
   }
   .chat-input-row input{
-    flex:1;border:1px solid var(--paper-dim);border-radius:4px;
-    padding:12px 14px;font-size:14.5px;font-family:'Public Sans';color:var(--asphalt);
+    flex:1;border:1px solid var(--blue-dark);border-radius:4px;
+    padding:12px 14px;font-size:14.5px;font-family:'Public Sans';color:var(--ink);
   }
   .chat-input-row button{
-    background:var(--amber);color:var(--asphalt);border:none;
+    background:var(--panel);color:var(--ink);border:none;
     padding:0 20px;border-radius:4px;font-weight:600;font-size:14px;
     font-family:'Overpass';cursor:pointer;
   }
@@ -105,16 +106,16 @@
 
 <nav>
   <a href="index.html" class="brand">
-    <div class="shield">CA</div>
-    <div class="brand-name">PermitPantry</div>
+    <div class="shield">FINRA</div>
+    <div class="brand-name">Finder</div>
   </a>
   <a href="index.html" class="nav-back">← Back to home</a>
 </nav>
 
 <main>
   <div class="chat-page-inner">
-    <h1>Ask anything about starting a food-related business in California.</h1>
-    <p class="sub">Answers are pulled directly from statutes, state froms, and local sources.</p>
+    <h1>Ask anything about FINRA rules.</h1>
+    <p class="sub">Answers are pulled directly from the FINRA Manual.</p>
 
     <div class="chat-window">
       <div class="chat-head">
@@ -123,7 +124,7 @@
       </div>
       <div class="chat-body" id="chatBody"></div>
       <div class="chat-input-row">
-        <input type="text" id="chatInput" placeholder="Ask about entity types, permits, waste handling…" autofocus>
+        <input type="text" id="chatInput" placeholder="Ask about supervision, registration, trading standards and practices…" autofocus>
         <button id="chatBtn">Ask</button>
       </div>
     </div>
