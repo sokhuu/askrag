@@ -73,6 +73,7 @@ class AskResponse(BaseModel):
     chat_history: List[ChatMessage]
     event_id: Optional[str] = None
     event_label: Optional[str] = None
+    checklist: Optional[str] = None
     items: Optional[List[ChecklistItem]] = None
 
 
@@ -100,21 +101,6 @@ def ask(request: AskRequest):
     ]
 
     event_id = classify_event_intent(request.question)
-    if event_id:
-        event_label, checklist, items = answer_event(event_id, "", retriever_state["hybrid_retriever"])
-        chat_history.append(HumanMessage(content=request.question))
-        chat_history.append(AIMessage(content=checklist))
-        updated_history = [
-            ChatMessage(role="human" if isinstance(m, HumanMessage) else "ai", content=m.content)
-            for m in chat_history
-        ]
-        return AskResponse(
-            answer=checklist,
-            chat_history=updated_history,
-            event_id=event_id,
-            event_label=event_label,
-            items=items,
-        )
 
     answer = ask_question(
         request.question,
@@ -127,6 +113,18 @@ def ask(request: AskRequest):
         ChatMessage(role="human" if isinstance(m, HumanMessage) else "ai", content=m.content)
         for m in chat_history
     ]
+
+    if event_id:
+        event_label, checklist, items = answer_event(event_id, "", retriever_state["hybrid_retriever"])
+        return AskResponse(
+            answer=answer,
+            chat_history=updated_history,
+            event_id=event_id,
+            event_label=event_label,
+            checklist=checklist,
+            items=items,
+        )
+
     return AskResponse(answer=answer, chat_history=updated_history)
 
 

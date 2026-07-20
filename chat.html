@@ -469,14 +469,12 @@
         answerBubble.textContent = data.error || 'Something went wrong. Please try again.';
       } else {
         chatHistory = data.chat_history;
+        answerBubble.textContent = data.answer;
         if(data.event_id){
-          answerBubble.remove();
-          renderChecklistBlock(data.event_id, data.event_label, data.answer, data.items);
+          renderChecklistBlock(data.event_id, data.event_label, data.checklist, data.items);
           activeEventId = data.event_id;
           setMode('event');
           eventRefine.style.display = 'flex';
-        } else {
-          answerBubble.textContent = data.answer;
         }
       }
     } catch (err) {

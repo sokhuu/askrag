@@ -4,6 +4,7 @@ import base64
 import glob
 import hashlib
 import pickle
+import re
 import threading
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -514,6 +515,31 @@ def reciprocal_rank_fusion(chunk_lists, k=60):
         reverse=True,
     )
 
+_JUNK_TEXT_PATTERN = re.compile(
+    r"learn more|finra\.org/rules-guidance|\bUP\b|VERSIONS\b|"
+    r"\d{1,2}/\d{1,2}/\d{2,4},\s*\d{1,2}:\d{2}\s*[AP]M|[‹›]",
+    re.I,
+)
+
+
+def _is_junk_document(doc):
+    """Flag PDF navigation/footer chunks (breadcrumbs, prev/next links, version-history
+    links, page URLs) that were captured as literal text when the FINRA rule pages were
+    saved to PDF. These can otherwise outrank real rule text via exact keyword matches
+    on the rule number/title that appears in the nav chrome."""
+    original = json.loads(doc.metadata.get("original_content", "{}"))
+    text = original.get("raw_text", "") or doc.page_content
+    stripped = _JUNK_TEXT_PATTERN.sub(" ", text)
+    stripped = re.sub(r"https?://\S+", " ", stripped)
+    stripped = re.sub(r"\s+", " ", stripped).strip()
+    return len(stripped) < 120
+
+
+def filter_junk_documents(docs):
+    filtered = [d for d in docs if not _is_junk_document(d)]
+    return filtered or docs
+
+
 _reranker = None
 _rerank_unavailable = False
 
@@ -740,7 +766,7 @@ def _format_checklist_text(items):
     return "\n".join(lines).strip()
 
 
-def answer_event(event_id, context, hybrid_retriever, fetch_k=20, final_k=10):
+def answer_event(event_id, context, hybrid_retriever, per_topic_fetch_k=10, per_topic_final_k=4):
     template = EVENT_TEMPLATES.get(event_id)
     if template is None:
         raise ValueError(f"Unknown event_id: {event_id}")
@@ -752,15 +778,26 @@ def answer_event(event_id, context, hybrid_retriever, fetch_k=20, final_k=10):
         items = cache[cache_key]
         return template["label"], _format_checklist_text(items), items
 
-    queries = [f"{t['query']} {context}".strip() for t in template["topics"]]
+    # Retrieve and rerank per topic (rather than pooling all topics into one shared
+    # top-k) so every obligation area gets guaranteed dedicated coverage — otherwise
+    # a topic's supporting chunk can be crowded out of a shared pool by unrelated
+    # topics, and that's fragile to reranker run-to-run variance on borderline scores.
+    def _top_docs_for_topic(topic):
+        query = f"{topic['query']} {context}".strip()
+        results = hybrid_retriever.invoke(query)
+        results = [d for d in results if not _is_junk_document(d)] or results
+        return rerank_candidates(results[:per_topic_fetch_k], query, top_n=per_topic_final_k)
 
     with ThreadPoolExecutor() as pool:
-        all_results = list(pool.map(hybrid_retriever.invoke, queries))
+        per_topic_docs = list(pool.map(_top_docs_for_topic, template["topics"]))
 
-    fused = reciprocal_rank_fusion(all_results, k=60)
-    candidates = [doc for doc, _ in fused[:fetch_k]]
-
-    top_docs = rerank_candidates(candidates, " ".join(queries), top_n=final_k)
+    top_docs = []
+    seen = set()
+    for docs in per_topic_docs:
+        for doc in docs:
+            if doc.page_content not in seen:
+                seen.add(doc.page_content)
+                top_docs.append(doc)
 
     items = generate_checklist_items(top_docs, template["label"], context, template["topics"])
 
@@ -808,6 +845,7 @@ def ask_question(user_question, hybrid_retriever, chat_history, fetch_k=15, fina
             all_results = list(pool.map(hybrid_retriever.invoke, all_queries))
 
     fused = reciprocal_rank_fusion(all_results, k=60)
+    fused = [pair for pair in fused if not _is_junk_document(pair[0])] or fused
     candidates = [doc for doc, _ in fused[:fetch_k]]
 
     top_docs = rerank_candidates(candidates, standalone_query, top_n=final_k)
