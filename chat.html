@@ -584,7 +584,7 @@
     const settings = document.createElement('details');
     settings.className = 'cal-settings';
     const summary = document.createElement('summary');
-    summary.textContent = 'Firm profile (drives the recurring deadlines below)';
+    summary.textContent = 'FINRAFinder Brokerage';
     settings.appendChild(summary);
     const form = document.createElement('div');
     form.className = 'cal-settings-form';
@@ -623,7 +623,6 @@
     recurringSection.appendChild(recurringTitle);
     const recurringNote = document.createElement('p');
     recurringNote.className = 'cal-note';
-    recurringNote.textContent = 'Example dates generated from the firm profile above — not legal advice, confirm against your actual filing calendar.';
     recurringSection.appendChild(recurringNote);
     computeRecurringDeadlines(profile, new Date()).forEach(function(item){
       recurringSection.appendChild(renderCalRow({
@@ -646,7 +645,7 @@
     if(!added.length){
       const empty = document.createElement('p');
       empty.className = 'cal-note';
-      empty.textContent = 'Nothing added yet — generate an event checklist and click "+ Add to calendar" on an obligation.';
+      empty.textContent = 'Nothing added yet. Generate an event checklist and click "+ Add to calendar" on an obligation.';
       addedSection.appendChild(empty);
     } else {
       added.forEach(function(item){ addedSection.appendChild(renderCalRow(item, true)); });
@@ -663,9 +662,9 @@
     if(mode === 'ask'){
       modeHint.textContent = 'No sign-up needed to ask a question.';
     } else if(mode === 'event'){
-      modeHint.textContent = 'Pick what just happened — we\'ll surface the obligations tied to it.';
+      modeHint.textContent = 'Pick what happened. We\'ll find the obligations tied to it.';
     } else {
-      modeHint.textContent = 'Deadlines that build themselves from your firm profile and the obligations you\'ve added.';
+      modeHint.textContent = 'Deadlines build from your firm profile and the obligations you\'ve added.';
       renderCalendarTab();
     }
   }
