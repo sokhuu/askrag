@@ -7,7 +7,7 @@ import pickle
 import threading
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
+from typing import List, Optional
 
 import openai
 from dotenv import load_dotenv
@@ -28,6 +28,7 @@ load_dotenv()
 DOCS_PATH = "docs"
 PERSIST_DIRECTORY = "db/chroma_combined"
 ANSWER_CACHE_PATH = f"{PERSIST_DIRECTORY}.answer_cache.json"
+EVENT_CACHE_PATH = f"{PERSIST_DIRECTORY}.event_cache.json"
 BM25_CACHE_PATH = f"{PERSIST_DIRECTORY}.bm25.pkl"
 MAX_HISTORY_TURNS = 10
 TEXT_EXTENSIONS = {".txt"}
@@ -56,6 +57,10 @@ def _invoke_with_retry(model, messages):
 
 class QueryVariations(BaseModel):
     queries: List[str]
+
+
+class EventIntentResult(BaseModel):
+    event_id: Optional[str] = None
 
 
 # ingestion
@@ -586,6 +591,175 @@ CONTENT TO ANALYZE:
         full_response += chunk.content
     print()
     return full_response
+
+
+# event-triggered obligations checklists
+
+EVENT_TEMPLATES = {
+    "onboard_rep": {
+        "label": "Onboard a registered representative",
+        "hint": "New hire who will register as a rep",
+        "topics": [
+            {"category": "Registration & Form U4", "query": "What FINRA registration requirements and Form U4 filing obligations apply when a firm hires a new registered representative?"},
+            {"category": "Fingerprinting", "query": "What fingerprinting requirements apply to a newly hired associated person under FINRA rules?"},
+            {"category": "Qualification Exams", "query": "What qualification examinations must a new registered representative pass before conducting securities business?"},
+            {"category": "Continuing Education", "query": "What continuing education requirements apply to a newly registered person?"},
+        ],
+    },
+    "terminate_rep": {
+        "label": "Terminate a registered representative",
+        "hint": "Rep leaving the firm, voluntary or involuntary",
+        "topics": [
+            {"category": "Form U5 Filing", "query": "What is the deadline and process for filing a Form U5 when a registered representative is terminated?"},
+            {"category": "Outstanding Complaints & Disputes", "query": "What obligations does a firm have regarding a terminated registered person's outstanding customer complaints or disputes?"},
+        ],
+    },
+    "open_branch": {
+        "label": "Open a new branch office",
+        "hint": "Establishing a new branch or OSJ location",
+        "topics": [
+            {"category": "Branch Supervision", "query": "What supervision requirements apply to a newly opened branch office under FINRA Rule 3110?"},
+            {"category": "Inspection Cycle", "query": "What are the inspection cycle requirements for a new branch office?"},
+            {"category": "Branch Registration", "query": "What registration or notice filing requirements apply when opening a new branch office?"},
+        ],
+    },
+    "aum_headcount_threshold": {
+        "label": "Cross an AUM or headcount threshold",
+        "hint": "Firm growth trips new regulatory thresholds",
+        "topics": [
+            {"category": "Size-Based Obligations", "query": "What new FINRA obligations apply to a member firm when it crosses significant size or capital thresholds?"},
+            {"category": "Supervisory Controls", "query": "What supervisory control system requirements apply as a firm grows under FINRA Rule 3120?"},
+            {"category": "Restricted Firm Obligations", "query": "What restricted firm obligations apply based on firm size or disciplinary history under FINRA Rule 4111?"},
+        ],
+    },
+    "customer_complaint": {
+        "label": "Receive a customer complaint",
+        "hint": "A written complaint just came in",
+        "topics": [
+            {"category": "Complaint Reporting", "query": "What are a member firm's reporting requirements when it receives a written customer complaint under FINRA Rule 4530?"},
+            {"category": "Complaint Recordkeeping", "query": "What recordkeeping requirements apply to written customer complaints under FINRA Rule 4513?"},
+        ],
+    },
+    "outside_business_activity": {
+        "label": "Rep wants an outside business activity",
+        "hint": "Outside business activity or private securities transaction",
+        "topics": [
+            {"category": "OBA Disclosure & Approval", "query": "What disclosure and approval obligations apply when a registered person wants to engage in an outside business activity under FINRA Rule 3270?"},
+            {"category": "Private Securities Transactions", "query": "What obligations apply to a registered person's private securities transactions under FINRA Rule 3280?"},
+        ],
+    },
+}
+
+
+def classify_event_intent(question):
+    """Detect whether a free-form question is actually describing one of the canned
+    business events happening (e.g. "we just hired a new rep") rather than a general
+    question about a rule. Returns a matching event_id, or None."""
+    event_list = "\n".join(f"- {eid}: {t['label']} ({t['hint']})" for eid, t in EVENT_TEMPLATES.items())
+    prompt = f"""A user of a FINRA compliance tool wrote the message below. Decide whether it describes one of these business events just happening, or about to happen, at their firm (not a general question about what a rule says):
+
+{event_list}
+
+Message: "{question}"
+
+Return the matching event_id only if the message clearly describes one of these events (e.g. "we just hired a new rep", "I'm terminating someone", "we're opening a new office", "a client just complained"). Return null if it's a general question or doesn't clearly match any event."""
+    llm_with_structure = llm_mini.with_structured_output(EventIntentResult)
+    result = llm_with_structure.invoke(prompt)
+    return result.event_id if result.event_id in EVENT_TEMPLATES else None
+
+
+def _load_event_cache():
+    if not os.path.exists(EVENT_CACHE_PATH):
+        return {}
+    with open(EVENT_CACHE_PATH) as f:
+        return json.load(f)
+
+
+def _save_event_cache(cache):
+    with open(EVENT_CACHE_PATH, "w") as f:
+        json.dump(cache, f, indent=2)
+
+
+class ChecklistItemModel(BaseModel):
+    category: str
+    obligation: str
+    rule: str
+    deadline: str
+    due_days: Optional[int] = None
+
+
+class ChecklistResult(BaseModel):
+    items: List[ChecklistItemModel]
+
+
+def generate_checklist_items(top_docs, event_label, context, topics):
+    topics_text = "\n".join(f"- {t['category']}: {t['query']}" for t in topics)
+    prompt_text = f"""A brokerage compliance officer just experienced this event: "{event_label}".
+{f'Additional context they provided: {context}' if context else ''}
+
+Produce a structured obligations checklist so nothing falls through the cracks, covering exactly these obligation areas (use the short label before the colon verbatim as the "category" for its items — do not invent new categories, and do not add a catch-all/"unspecified" item):
+{topics_text}
+
+For each obligation, cite the specific FINRA rule number and name from the source documents (e.g. "FINRA Rule 3110 (Supervision)") and describe the deadline as stated in the rule. If a deadline is a fixed number of days from the triggering event (e.g. "within 30 days of Form U4 filing"), also set due_days to that integer; otherwise leave due_days null (e.g. for "promptly", "annually", "before conducting business"). If the provided documents don't have enough information for one of the areas above, add a single item under that same category noting the gap, with due_days null.
+
+CONTENT TO ANALYZE:
+"""
+    for i, doc in enumerate(top_docs, 1):
+        prompt_text += f"\n--- Document {i} (source: {doc.metadata.get('source', 'unknown')}) ---\n"
+        original = json.loads(doc.metadata.get("original_content", "{}"))
+        raw_text = original.get("raw_text", "")
+        if raw_text:
+            prompt_text += f"TEXT:\n{raw_text}\n"
+        for j, table in enumerate(original.get("tables_html", []), 1):
+            prompt_text += f"TABLE {j}:\n{table}\n"
+
+    llm_with_structure = llm.with_structured_output(ChecklistResult)
+    result = llm_with_structure.invoke(prompt_text)
+    return [item.model_dump() for item in result.items]
+
+
+def _format_checklist_text(items):
+    by_category = {}
+    for item in items:
+        by_category.setdefault(item["category"], []).append(item)
+
+    lines = []
+    for category, cat_items in by_category.items():
+        lines.append(f"### {category}")
+        for item in cat_items:
+            lines.append(f"- {item['obligation']} — {item['rule']} ({item['deadline']})")
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+def answer_event(event_id, context, hybrid_retriever, fetch_k=20, final_k=10):
+    template = EVENT_TEMPLATES.get(event_id)
+    if template is None:
+        raise ValueError(f"Unknown event_id: {event_id}")
+
+    context = (context or "").strip()
+    cache_key = hashlib.sha256(f"{event_id}|{context}".lower().encode()).hexdigest()[:16]
+    cache = _load_event_cache()
+    if cache_key in cache:
+        items = cache[cache_key]
+        return template["label"], _format_checklist_text(items), items
+
+    queries = [f"{t['query']} {context}".strip() for t in template["topics"]]
+
+    with ThreadPoolExecutor() as pool:
+        all_results = list(pool.map(hybrid_retriever.invoke, queries))
+
+    fused = reciprocal_rank_fusion(all_results, k=60)
+    candidates = [doc for doc, _ in fused[:fetch_k]]
+
+    top_docs = rerank_candidates(candidates, " ".join(queries), top_n=final_k)
+
+    items = generate_checklist_items(top_docs, template["label"], context, template["topics"])
+
+    cache[cache_key] = items
+    _save_event_cache(cache)
+
+    return template["label"], _format_checklist_text(items), items
 
 
 # CHAT :3

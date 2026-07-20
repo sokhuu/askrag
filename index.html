@@ -159,6 +159,35 @@
   .qa-row .qa-q{font-size:15px;font-weight:500;}
   .qa-row .qa-arrow{color:var(--navy);font-size:16px;text-align:right;}
 
+  .radar{padding:64px 32px;background:var(--panel);}
+  .radar .eyebrow-route{
+    display:inline-flex;align-items:center;gap:10px;
+    background:var(--white);border:1px solid var(--blue-dark);color:var(--navy);
+    padding:6px 14px;border-radius:3px;
+    font-family:'IBM Plex Mono';font-size:12px;letter-spacing:0.08em;
+    margin-bottom:16px;
+  }
+  .radar h2{font-size:26px;margin-bottom:8px;}
+  .radar .lead{opacity:0.75;font-size:14.5px;max-width:560px;margin:0 0 32px;}
+  .radar-card{
+    background:var(--white);border:1px solid var(--blue-dark);border-radius:8px;
+    display:grid;grid-template-columns:1.15fr 1fr;
+  }
+  .radar-rule{padding:28px 30px;border-right:1px solid var(--border);}
+  .radar-firm{padding:28px 30px;background:var(--bg);}
+  .radar-rule-label,.radar-firm-label{
+    font-family:'IBM Plex Mono';font-size:11px;letter-spacing:0.08em;color:var(--blue-dark);margin-bottom:10px;
+  }
+  .radar-rule-title{font-family:'Overpass';font-weight:800;font-size:19px;margin-bottom:8px;color:var(--navy);}
+  .radar-rule-meta{font-family:'IBM Plex Mono';font-size:11.5px;color:var(--muted);margin-bottom:16px;line-height:1.6;}
+  .radar-rule-body{font-size:14px;line-height:1.65;margin:0 0 16px;}
+  .radar-source{font-size:13px;font-weight:600;text-decoration:none;}
+  .radar-firm-name{font-family:'Overpass';font-weight:800;font-size:16px;margin-bottom:6px;}
+  .radar-firm-desc{font-size:13.5px;opacity:0.8;margin:0 0 16px;}
+  .radar-firm-impact{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:12px;}
+  .radar-firm-impact li{font-size:13px;line-height:1.6;}
+  .radar-disclaimer{font-size:12px;opacity:0.6;margin:16px 4px 0;}
+
   .also{padding:12px 32px 70px;}
   .also-card{
     max-width:1016px;margin:0 auto;background:var(--white);border:1px solid var(--blue-dark);
@@ -189,6 +218,8 @@
     .footer-grid{grid-template-columns:1fr 1fr;}
     .hero h1{font-size:30px;}
     .also-card{flex-direction:column;align-items:flex-start;}
+    .radar-card{grid-template-columns:1fr;}
+    .radar-rule{border-right:none;border-bottom:1px solid var(--border);}
   }
 </style>
 </head>
@@ -203,6 +234,7 @@
     <a href="#">Home</a>
     <a href="#">Rule topics</a>
     <a href="#">Examples</a>
+    <a href="#whats-changing">What's Changing</a>
     <a href="#">About</a>
   </div>
   <a href="chat.html" class="nav-cta">Ask a question</a>
@@ -279,6 +311,37 @@
         <p>We'll tell you exactly what the rules say. For anything high-stakes, we'll recommend when to speak to a professional consultant.</p>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="radar" id="whats-changing">
+  <div class="wrap">
+    <div class="eyebrow-route">UPCOMING RULE CHANGE</div>
+    <h2>A rule most firms haven't operationalized yet.</h2>
+    <p class="lead">We don't just answer questions about the rulebook as it stands today — here's how we'd flag a change that's already been approved and is about to hit firms' supervisory systems.</p>
+
+    <div class="radar-card">
+      <div class="radar-rule">
+        <div class="radar-rule-label">FINRA RULE 4210 AMENDMENT</div>
+        <div class="radar-rule-title">Pattern Day Trader rule replaced with intraday margin standards</div>
+        <div class="radar-rule-meta">SR-FINRA-2025-017 · SEC approved April 14, 2026<br>Effective June 4, 2026 · Optional phase-in through October 20, 2027</div>
+        <p class="radar-rule-body">
+          For two decades, firms flagged "pattern day traders" by counting day trades (4 or more within 5 business days) and enforced a flat $25,000 minimum equity requirement on those accounts. That framework is gone. In its place, firms must calculate each margin account's <em>intraday margin deficit</em> — the largest gap between required margin and account equity at any point during the trading day — whenever a trade reduces the account's intraday margin level. Customers get 15 business days to cure a deficit; if it isn't cured by the 5th business day, the firm must freeze further trading in the account for 90 days, with narrow exceptions for small or extraordinary deficits.
+        </p>
+        <a class="radar-source" href="https://www.finra.org/rules-guidance/notices/26-10" target="_blank" rel="noopener">Read FINRA Regulatory Notice 26-10 →</a>
+      </div>
+      <div class="radar-firm">
+        <div class="radar-firm-label">HOW THIS HITS AN ACTUAL FIRM</div>
+        <div class="radar-firm-name">Example: a mid-size introducing broker-dealer</div>
+        <p class="radar-firm-desc">A fictional 38-rep introducing broker-dealer with a retail active-trading desk of roughly 1,150 margin accounts, many currently monitored under the old "pattern day trader" logic.</p>
+        <ul class="radar-firm-impact">
+          <li><strong>Old workflow, now obsolete:</strong> its WSPs and surveillance system flag accounts after 4 day trades in 5 business days and hard-block trading below $25,000 equity — a rule that no longer exists as of June 4, 2026.</li>
+          <li><strong>New workflow, required:</strong> its ops team has to stand up intraday margin deficit calculations, choose between real-time or single end-of-day calculation, and build the 15-business-day cure and 90-day freeze process — before June 4, 2026, or by October 20, 2027 if they elect the phase-in.</li>
+          <li><strong>What falls through the cracks without this:</strong> if the firm keeps supervising against the old PDT thresholds past the effective date, it's enforcing a rule that's gone — while missing the cure-window and freeze obligations that replaced it.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="radar-disclaimer">The rule, filing, and dates above are real (FINRA Rule 4210, SR-FINRA-2025-017). The firm described is fictional, used for illustration — not legal advice.</p>
   </div>
 </section>
 

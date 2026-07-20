@@ -97,8 +97,94 @@
   .chat-input-row button:disabled{opacity:0.6;cursor:default;}
   .hero-hint{margin-top:16px;font-size:13px;opacity:0.6;text-align:center;}
 
+  .mode-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:16px;}
+  .mode-tab{
+    background:var(--white);border:1px solid var(--blue-dark);color:var(--ink);
+    padding:8px 16px;border-radius:4px;font-size:13.5px;font-weight:600;
+    font-family:'Overpass';cursor:pointer;
+  }
+  .mode-tab.active{background:var(--navy);color:var(--white);border-color:var(--navy);}
+
+  .event-picker{padding:18px 20px;border-top:1px solid var(--blue-dark);background:var(--white);}
+  .event-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .event-chip{
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;
+    padding:12px 14px;text-align:left;cursor:pointer;font-family:'Public Sans';
+  }
+  .event-chip:hover{border-color:var(--navy);}
+  .event-chip .event-label{font-size:13.5px;font-weight:600;color:var(--navy);margin-bottom:4px;}
+  .event-chip .event-hint{font-size:12px;color:var(--muted);}
+  .event-refine{display:flex;gap:8px;margin-top:14px;}
+  .event-refine input{
+    flex:1;border:1px solid var(--blue-dark);border-radius:4px;
+    padding:10px 12px;font-size:13.5px;font-family:'Public Sans';color:var(--ink);
+  }
+  .event-refine button{
+    background:var(--panel);color:var(--ink);border:none;
+    padding:0 16px;border-radius:4px;font-weight:600;font-size:13px;
+    font-family:'Overpass';cursor:pointer;
+  }
+
+  .checklist-block{max-width:100%!important;width:100%;}
+  .checklist-text{white-space:pre-wrap;margin-bottom:12px;}
+  .checklist-anchor-row{
+    display:flex;align-items:center;gap:8px;margin:4px 0 12px;
+    font-size:12.5px;color:var(--muted);
+  }
+  .checklist-anchor-row input{
+    border:1px solid var(--border);border-radius:4px;padding:5px 8px;
+    font-size:12.5px;font-family:'Public Sans';color:var(--ink);
+  }
+  .checklist-items{display:flex;flex-direction:column;gap:8px;}
+  .checklist-item-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--white);border:1px solid var(--border);border-radius:6px;
+    padding:10px 12px;
+  }
+  .checklist-item-obligation{font-size:13px;font-weight:600;color:var(--ink);}
+  .checklist-item-meta{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .checklist-add-btn{
+    flex-shrink:0;background:var(--white);border:1px solid var(--blue-dark);color:var(--navy);
+    padding:6px 12px;border-radius:4px;font-size:12px;font-weight:600;
+    font-family:'Overpass';cursor:pointer;white-space:nowrap;
+  }
+  .checklist-add-btn:disabled{opacity:0.55;cursor:default;border-color:var(--border);color:var(--muted);}
+
+  .calendar-view{padding:22px 20px;overflow-y:auto;max-height:55vh;}
+  .cal-settings{margin-bottom:20px;font-size:12.5px;}
+  .cal-settings summary{cursor:pointer;font-weight:600;color:var(--navy);}
+  .cal-settings-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+  .cal-settings-row{display:flex;flex-direction:column;gap:4px;}
+  .cal-settings-row label{font-size:11.5px;color:var(--muted);}
+  .cal-settings-row input{
+    border:1px solid var(--border);border-radius:4px;padding:6px 8px;
+    font-size:12.5px;font-family:'IBM Plex Mono';color:var(--ink);
+  }
+  .cal-section{margin-bottom:26px;}
+  .cal-section h3{font-size:14px;margin:0 0 4px;}
+  .cal-note{font-size:12px;color:var(--muted);margin:0 0 12px;}
+  .cal-row{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 0;border-bottom:1px solid var(--border);
+  }
+  .cal-row-main{flex:1;}
+  .cal-row-title{font-size:13.5px;font-weight:600;color:var(--ink);}
+  .cal-row-meta{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .cal-row-badge{
+    flex-shrink:0;font-family:'IBM Plex Mono';font-size:11px;color:var(--navy);
+    background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:4px 8px;
+  }
+  .cal-row-badge-soon{color:var(--white);background:var(--blue);border-color:var(--blue-dark);}
+  .cal-row-remove{
+    flex-shrink:0;background:none;border:none;color:var(--muted);font-size:16px;
+    cursor:pointer;line-height:1;padding:0 4px;
+  }
+  .cal-row-remove:hover{color:var(--ink);}
+
   @media (max-width:600px){
     .chat-body{max-height:none;}
+    .event-grid{grid-template-columns:1fr;}
+    .cal-settings-form{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -117,18 +203,32 @@
     <h1>Ask anything about FINRA rules.</h1>
     <p class="sub">Answers are pulled directly from the FINRA Manual.</p>
 
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="ask" id="tabAsk">Ask a question</button>
+      <button class="mode-tab" data-mode="event" id="tabEvent">Check an event</button>
+      <button class="mode-tab" data-mode="calendar" id="tabCalendar">Calendar</button>
+    </div>
+
     <div class="chat-window">
       <div class="chat-head">
         <span>RAG</span>
         <span>LIVE</span>
       </div>
       <div class="chat-body" id="chatBody"></div>
-      <div class="chat-input-row">
+      <div class="calendar-view" id="calendarView" style="display:none;"></div>
+      <div class="chat-input-row" id="askInputRow">
         <input type="text" id="chatInput" placeholder="Ask about supervision, registration, trading standards and practices…" autofocus>
         <button id="chatBtn">Ask</button>
       </div>
+      <div class="event-picker" id="eventPicker" style="display:none;">
+        <div class="event-grid" id="eventGrid"></div>
+        <div class="event-refine" id="eventRefine" style="display:none;">
+          <input type="text" id="eventContext" placeholder="Add context: firm type, state, headcount…">
+          <button id="eventRefineBtn">Refine</button>
+        </div>
+      </div>
     </div>
-    <div class="hero-hint">No sign-up needed to ask a question.</div>
+    <div class="hero-hint" id="modeHint">No sign-up needed to ask a question.</div>
   </div>
 </main>
 
@@ -137,7 +237,136 @@
   const chatBody = document.getElementById('chatBody');
   const input = document.getElementById('chatInput');
   const btn = document.getElementById('chatBtn');
+  const askInputRow = document.getElementById('askInputRow');
+  const eventPicker = document.getElementById('eventPicker');
+  const eventGrid = document.getElementById('eventGrid');
+  const eventRefine = document.getElementById('eventRefine');
+  const eventContext = document.getElementById('eventContext');
+  const eventRefineBtn = document.getElementById('eventRefineBtn');
+  const calendarView = document.getElementById('calendarView');
+  const modeHint = document.getElementById('modeHint');
+  const modeTabs = document.querySelectorAll('.mode-tab');
   let chatHistory = [];
+
+  const EVENTS = [
+    { id: 'onboard_rep', label: 'Onboard a rep', hint: 'New hire who will register as a rep' },
+    { id: 'terminate_rep', label: 'Terminate a rep', hint: 'Rep leaving the firm' },
+    { id: 'open_branch', label: 'Open a branch office', hint: 'New branch or OSJ location' },
+    { id: 'aum_headcount_threshold', label: 'Cross an AUM/headcount threshold', hint: 'Firm growth trips new obligations' },
+    { id: 'customer_complaint', label: 'Receive a customer complaint', hint: 'A written complaint just came in' },
+    { id: 'outside_business_activity', label: 'Rep wants an outside business activity', hint: 'OBA or private securities transaction' },
+  ];
+  const ANCHOR_LABELS = {
+    onboard_rep: 'Hire date',
+    terminate_rep: 'Termination date',
+    open_branch: 'Branch open date',
+    aum_headcount_threshold: 'Threshold crossed date',
+    customer_complaint: 'Complaint received date',
+    outside_business_activity: 'Request date',
+  };
+  let activeEventId = null;
+
+  // ---- calendar persistence (localStorage-backed, no server storage needed) ----
+  const CAL_EVENTS_KEY = 'owaste_calendar_events';
+  const CAL_PROFILE_KEY = 'owaste_firm_profile';
+  const DEFAULT_FIRM_PROFILE = {
+    certAnniversary: '03-31',
+    fiscalYearEnd: '12-31',
+    regAnniversary: '11-15',
+    complianceMeeting: '10-01',
+  };
+
+  function getCalendarEvents(){
+    try { return JSON.parse(localStorage.getItem(CAL_EVENTS_KEY)) || []; }
+    catch(e){ return []; }
+  }
+  function saveCalendarEvents(events){
+    localStorage.setItem(CAL_EVENTS_KEY, JSON.stringify(events));
+  }
+  function addCalendarEvent(entry){
+    const events = getCalendarEvents();
+    events.push(Object.assign({
+      id: 'cal_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      addedAt: new Date().toISOString(),
+    }, entry));
+    saveCalendarEvents(events);
+  }
+  function removeCalendarEvent(id){
+    saveCalendarEvents(getCalendarEvents().filter(function(e){ return e.id !== id; }));
+    renderCalendarTab();
+  }
+
+  function getFirmProfile(){
+    try { return Object.assign({}, DEFAULT_FIRM_PROFILE, JSON.parse(localStorage.getItem(CAL_PROFILE_KEY)) || {}); }
+    catch(e){ return Object.assign({}, DEFAULT_FIRM_PROFILE); }
+  }
+  function saveFirmProfile(profile){
+    localStorage.setItem(CAL_PROFILE_KEY, JSON.stringify(profile));
+  }
+
+  // ---- date math ----
+  function addDays(date, days){
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+  function toISODate(date){
+    return date.toISOString().slice(0, 10);
+  }
+  function daysUntil(isoDate){
+    if(!isoDate) return null;
+    const due = new Date(isoDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((due - today) / 86400000);
+  }
+  function nextOccurrence(monthDay, today){
+    const parts = (monthDay || '01-01').split('-').map(Number);
+    let candidate = new Date(today.getFullYear(), parts[0] - 1, parts[1]);
+    if(candidate < today) candidate.setFullYear(candidate.getFullYear() + 1);
+    return candidate;
+  }
+  function mostRecentOccurrence(monthDay, today){
+    const parts = (monthDay || '01-01').split('-').map(Number);
+    let candidate = new Date(today.getFullYear(), parts[0] - 1, parts[1]);
+    if(candidate > today) candidate.setFullYear(candidate.getFullYear() - 1);
+    return candidate;
+  }
+  function computeRecurringDeadlines(profile, today){
+    const items = [
+      {
+        title: 'Annual CEO Certification',
+        rule: 'FINRA Rule 3130',
+        dueDate: nextOccurrence(profile.certAnniversary, today),
+        note: 'Recurs annually on your firm\'s designated certification date.',
+      },
+      {
+        title: 'CE Regulatory Element window',
+        rule: 'FINRA Rule 1240',
+        dueDate: nextOccurrence(profile.regAnniversary, today),
+        note: 'Recurs annually around each registered person\'s registration anniversary.',
+      },
+      {
+        title: 'Annual Compliance Meeting',
+        rule: 'NASD IM-3010 / FINRA Rule 3110',
+        dueDate: nextOccurrence(profile.complianceMeeting, today),
+        note: 'Firm-scheduled annual meeting date.',
+      },
+    ];
+    let fyEnd = mostRecentOccurrence(profile.fiscalYearEnd, today);
+    let reportDue = addDays(fyEnd, 120);
+    if(reportDue < today){
+      fyEnd = new Date(fyEnd.getFullYear() + 1, fyEnd.getMonth(), fyEnd.getDate());
+      reportDue = addDays(fyEnd, 120);
+    }
+    items.push({
+      title: 'Supervisory Controls Report',
+      rule: 'FINRA Rule 3120',
+      dueDate: reportDue,
+      note: 'Approximate — due ~120 days after fiscal year end.',
+    });
+    return items.sort(function(a, b){ return a.dueDate - b.dueDate; });
+  }
 
   function addBubble(role, text){
     const div = document.createElement('div');
@@ -146,6 +375,73 @@
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;
     return div;
+  }
+
+  function renderChecklistBlock(eventId, eventLabel, checklistText, items){
+    const wrap = document.createElement('div');
+    wrap.className = 'bubble-a checklist-block';
+
+    const text = document.createElement('div');
+    text.className = 'checklist-text';
+    text.textContent = checklistText;
+    wrap.appendChild(text);
+
+    if(items && items.length){
+      const anchorRow = document.createElement('div');
+      anchorRow.className = 'checklist-anchor-row';
+      const anchorLabelEl = document.createElement('label');
+      anchorLabelEl.textContent = (ANCHOR_LABELS[eventId] || 'Event date') + ':';
+      const anchorInput = document.createElement('input');
+      anchorInput.type = 'date';
+      anchorInput.value = toISODate(new Date());
+      anchorRow.appendChild(anchorLabelEl);
+      anchorRow.appendChild(anchorInput);
+      wrap.appendChild(anchorRow);
+
+      const list = document.createElement('div');
+      list.className = 'checklist-items';
+      items.forEach(function(item){
+        const row = document.createElement('div');
+        row.className = 'checklist-item-row';
+
+        const info = document.createElement('div');
+        const obligationEl = document.createElement('div');
+        obligationEl.className = 'checklist-item-obligation';
+        obligationEl.textContent = item.obligation;
+        const metaEl = document.createElement('div');
+        metaEl.className = 'checklist-item-meta';
+        metaEl.textContent = item.rule + ' — ' + item.deadline;
+        info.appendChild(obligationEl);
+        info.appendChild(metaEl);
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'checklist-add-btn';
+        addBtn.textContent = '+ Add to calendar';
+        addBtn.addEventListener('click', function(){
+          const anchor = new Date(anchorInput.value + 'T00:00:00');
+          const dueDate = item.due_days != null ? toISODate(addDays(anchor, item.due_days)) : null;
+          addCalendarEvent({
+            title: item.obligation,
+            rule: item.rule,
+            category: item.category,
+            deadlineText: item.deadline,
+            dueDate: dueDate,
+            source: eventLabel,
+          });
+          addBtn.textContent = 'Added ✓';
+          addBtn.disabled = true;
+        });
+
+        row.appendChild(info);
+        row.appendChild(addBtn);
+        list.appendChild(row);
+      });
+      wrap.appendChild(list);
+    }
+
+    chatBody.appendChild(wrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    return wrap;
   }
 
   async function send(){
@@ -166,8 +462,16 @@
       if(!res.ok){
         answerBubble.textContent = data.error || 'Something went wrong. Please try again.';
       } else {
-        answerBubble.textContent = data.answer;
         chatHistory = data.chat_history;
+        if(data.event_id){
+          answerBubble.remove();
+          renderChecklistBlock(data.event_id, data.event_label, data.answer, data.items);
+          activeEventId = data.event_id;
+          setMode('event');
+          eventRefine.style.display = 'flex';
+        } else {
+          answerBubble.textContent = data.answer;
+        }
       }
     } catch (err) {
       answerBubble.textContent = 'Could not reach the server. Please try again.';
@@ -181,6 +485,196 @@
   input.addEventListener('keydown', function(e){
     if(e.key === 'Enter') send();
   });
+
+  function renderEventGrid(){
+    eventGrid.innerHTML = '';
+    EVENTS.forEach(function(ev){
+      const chip = document.createElement('button');
+      chip.className = 'event-chip';
+      const label = document.createElement('div');
+      label.className = 'event-label';
+      label.textContent = ev.label;
+      const hint = document.createElement('div');
+      hint.className = 'event-hint';
+      hint.textContent = ev.hint;
+      chip.appendChild(label);
+      chip.appendChild(hint);
+      chip.addEventListener('click', function(){ runEvent(ev); });
+      eventGrid.appendChild(chip);
+    });
+  }
+
+  async function runEvent(ev, context){
+    activeEventId = ev.id;
+    addBubble('human', ev.label + (context ? ` — ${context}` : ''));
+    const answerBubble = addBubble('ai', 'Generating checklist…');
+    eventRefine.style.display = 'flex';
+    eventContext.value = '';
+
+    try {
+      const res = await fetch('/api/event', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ event_id: ev.id, context: context || '' })
+      });
+      const data = await res.json();
+      answerBubble.remove();
+      if(!res.ok){
+        addBubble('ai', data.error || 'Something went wrong. Please try again.');
+      } else {
+        renderChecklistBlock(ev.id, ev.label, data.checklist, data.items);
+      }
+    } catch (err) {
+      answerBubble.remove();
+      addBubble('ai', 'Could not reach the server. Please try again.');
+    }
+  }
+
+  eventRefineBtn.addEventListener('click', function(){
+    const context = eventContext.value.trim();
+    const ev = EVENTS.find(function(e){ return e.id === activeEventId; });
+    if(!ev || !context) return;
+    runEvent(ev, context);
+  });
+  eventContext.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') eventRefineBtn.click();
+  });
+
+  function renderCalRow(item, removable){
+    const row = document.createElement('div');
+    row.className = 'cal-row';
+
+    const main = document.createElement('div');
+    main.className = 'cal-row-main';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'cal-row-title';
+    titleEl.textContent = item.title;
+    const metaEl = document.createElement('div');
+    metaEl.className = 'cal-row-meta';
+    const rulePart = item.rule ? item.rule + ' — ' : '';
+    metaEl.textContent = item.dueDate
+      ? rulePart + item.dueDate
+      : rulePart + 'date TBD — ' + (item.deadlineText || item.note || 'see obligation text');
+    main.appendChild(titleEl);
+    main.appendChild(metaEl);
+    row.appendChild(main);
+
+    const badge = document.createElement('div');
+    badge.className = 'cal-row-badge';
+    const d = daysUntil(item.dueDate);
+    badge.textContent = d === null ? '—' : (d < 0 ? 'overdue' : d === 0 ? 'today' : `in ${d}d`);
+    if(d !== null && d <= 14) badge.classList.add('cal-row-badge-soon');
+    row.appendChild(badge);
+
+    if(removable){
+      const rm = document.createElement('button');
+      rm.className = 'cal-row-remove';
+      rm.textContent = '×';
+      rm.title = 'Remove';
+      rm.addEventListener('click', function(){ removeCalendarEvent(item.id); });
+      row.appendChild(rm);
+    }
+    return row;
+  }
+
+  function renderCalendarTab(){
+    calendarView.innerHTML = '';
+    const profile = getFirmProfile();
+
+    const settings = document.createElement('details');
+    settings.className = 'cal-settings';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Firm profile (drives the recurring deadlines below)';
+    settings.appendChild(summary);
+    const form = document.createElement('div');
+    form.className = 'cal-settings-form';
+    [
+      { key: 'certAnniversary', label: 'Rule 3130 certification date (MM-DD)' },
+      { key: 'fiscalYearEnd', label: 'Fiscal year end (MM-DD)' },
+      { key: 'regAnniversary', label: 'Rep registration anniversary (MM-DD)' },
+      { key: 'complianceMeeting', label: 'Annual compliance meeting (MM-DD)' },
+    ].forEach(function(field){
+      const row = document.createElement('div');
+      row.className = 'cal-settings-row';
+      const label = document.createElement('label');
+      label.textContent = field.label;
+      const fieldInput = document.createElement('input');
+      fieldInput.type = 'text';
+      fieldInput.value = profile[field.key];
+      fieldInput.pattern = '\\d{2}-\\d{2}';
+      fieldInput.addEventListener('change', function(){
+        if(!/^\d{2}-\d{2}$/.test(fieldInput.value)) return;
+        const updated = getFirmProfile();
+        updated[field.key] = fieldInput.value;
+        saveFirmProfile(updated);
+        renderCalendarTab();
+      });
+      row.appendChild(label);
+      row.appendChild(fieldInput);
+      form.appendChild(row);
+    });
+    settings.appendChild(form);
+    calendarView.appendChild(settings);
+
+    const recurringSection = document.createElement('div');
+    recurringSection.className = 'cal-section';
+    const recurringTitle = document.createElement('h3');
+    recurringTitle.textContent = 'Recurring firm deadlines';
+    recurringSection.appendChild(recurringTitle);
+    const recurringNote = document.createElement('p');
+    recurringNote.className = 'cal-note';
+    recurringNote.textContent = 'Example dates generated from the firm profile above — not legal advice, confirm against your actual filing calendar.';
+    recurringSection.appendChild(recurringNote);
+    computeRecurringDeadlines(profile, new Date()).forEach(function(item){
+      recurringSection.appendChild(renderCalRow({
+        title: item.title,
+        rule: item.rule,
+        dueDate: toISODate(item.dueDate),
+        deadlineText: item.note,
+      }, false));
+    });
+    calendarView.appendChild(recurringSection);
+
+    const addedSection = document.createElement('div');
+    addedSection.className = 'cal-section';
+    const addedTitle = document.createElement('h3');
+    addedTitle.textContent = 'Added from checklists';
+    addedSection.appendChild(addedTitle);
+    const added = getCalendarEvents().sort(function(a, b){
+      return (a.dueDate || '9999-99-99') < (b.dueDate || '9999-99-99') ? -1 : 1;
+    });
+    if(!added.length){
+      const empty = document.createElement('p');
+      empty.className = 'cal-note';
+      empty.textContent = 'Nothing added yet — generate an event checklist and click "+ Add to calendar" on an obligation.';
+      addedSection.appendChild(empty);
+    } else {
+      added.forEach(function(item){ addedSection.appendChild(renderCalRow(item, true)); });
+    }
+    calendarView.appendChild(addedSection);
+  }
+
+  function setMode(mode){
+    modeTabs.forEach(function(t){ t.classList.toggle('active', t.dataset.mode === mode); });
+    chatBody.style.display = mode === 'calendar' ? 'none' : 'flex';
+    calendarView.style.display = mode === 'calendar' ? 'block' : 'none';
+    askInputRow.style.display = mode === 'ask' ? 'flex' : 'none';
+    eventPicker.style.display = mode === 'event' ? 'block' : 'none';
+    if(mode === 'ask'){
+      modeHint.textContent = 'No sign-up needed to ask a question.';
+    } else if(mode === 'event'){
+      modeHint.textContent = 'Pick what just happened — we\'ll surface the obligations tied to it.';
+    } else {
+      modeHint.textContent = 'Deadlines that build themselves from your firm profile and the obligations you\'ve added.';
+      renderCalendarTab();
+    }
+  }
+
+  modeTabs.forEach(function(tab){
+    tab.addEventListener('click', function(){ setMode(tab.dataset.mode); });
+  });
+
+  renderEventGrid();
 })();
 </script>
 </body>
