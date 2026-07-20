@@ -603,7 +603,7 @@ EVENT_TEMPLATES = {
             {"category": "Registration & Form U4", "query": "What FINRA registration requirements and Form U4 filing obligations apply when a firm hires a new registered representative?"},
             {"category": "Fingerprinting", "query": "What fingerprinting requirements apply to a newly hired associated person under FINRA rules?"},
             {"category": "Qualification Exams", "query": "What qualification examinations must a new registered representative pass before conducting securities business?"},
-            {"category": "Continuing Education", "query": "What continuing education requirements apply to a newly registered person?"},
+            {"category": "Continuing Education", "query": "What continuing education requirements and deadlines, including the annual Regulatory Element completion date, apply to a newly registered person?"},
         ],
     },
     "terminate_rep": {
@@ -700,7 +700,15 @@ def generate_checklist_items(top_docs, event_label, context, topics):
 Produce a structured obligations checklist so nothing falls through the cracks, covering exactly these obligation areas (use the short label before the colon verbatim as the "category" for its items — do not invent new categories, and do not add a catch-all/"unspecified" item):
 {topics_text}
 
-For each obligation, cite the specific FINRA rule number and name from the source documents (e.g. "FINRA Rule 3110 (Supervision)") and describe the deadline as stated in the rule. If a deadline is a fixed number of days from the triggering event (e.g. "within 30 days of Form U4 filing"), also set due_days to that integer; otherwise leave due_days null (e.g. for "promptly", "annually", "before conducting business"). If the provided documents don't have enough information for one of the areas above, add a single item under that same category noting the gap, with due_days null.
+For each obligation, cite the specific FINRA rule number and name from the source documents (e.g. "FINRA Rule 3110 (Supervision)").
+
+Deadline accuracy is critical — these are read by compliance officers who will rely on them. A "deadline" includes any timing or triggering condition the rule attaches to the obligation, not just a day-count — e.g. "before registration becomes effective", "annually by December 31", "promptly", and "within 30 days" are all valid deadlines to report; report them using that same wording. Follow these rules strictly:
+- Only state a deadline if the source text ties it to THIS specific obligation. Do not borrow or infer a deadline from a nearby but different provision in the same rule (for example, a recordkeeping/"available promptly upon regulatory request" clause is NOT the deadline for the filing action itself — those are different obligations even when they appear in the same paragraph, even if no other timing language exists for the filing action).
+- Quote or closely paraphrase the deadline exactly as the rule states it, including any specific date (e.g. "annually by December 31", not just "annually") or condition (e.g. "before registration becomes effective", not just "eventually").
+- Only if the source text truly states no timing or triggering condition at all for this specific obligation, set deadline to "No specific deadline stated in the rule text" and due_days to null. Do not invent a plausible-sounding deadline, but do not discard a real one either.
+- Only set due_days to a non-null integer if the rule states a fixed number of days from a clearly identifiable trigger event for THIS obligation (e.g. "within 30 days of Form U4 filing"). For conditional deadlines without a day-count (e.g. "before registration becomes effective", "annually by December 31"), leave due_days null but still report the condition in the deadline field.
+
+If the provided documents don't have enough information for one of the areas above, add a single item under that same category noting the gap, with deadline "Not covered by the retrieved rule text" and due_days null.
 
 CONTENT TO ANALYZE:
 """
